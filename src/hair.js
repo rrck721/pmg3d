@@ -12,7 +12,7 @@ function buildHair() {
     const t = i / M_, ring = [];
     for (let j = 0; j < N_; j++) {
       const az = -PI + j / N_ * TAU, pol = Math.max(1e-3, t * (hairline(az) - 0.012));
-      ring.push(hairPt(dirOf(az, pol), 0.0022 + 0.0040 * smooth(1.3, 0.0, pol)));
+      ring.push(hairPt(dirOf(az, pol), 0.0012 + 0.0022 * smooth(1.3, 0.0, pol)));
     }
     rings.push(ring);
   }
@@ -50,7 +50,7 @@ function buildHair() {
     loft(locks, ringsL, { tile: 0.05, colFn: (p, i) => { const t = i / nSeg; const g = shade * (0.82 + 0.3 * t); return [g, g, g * 1.02]; } });
   }
   // 1. top volume, swept toward her left (+x)
-  for (let i = 0; i < 330; i++) {
+  for (let i = 0; i < 240; i++) {
     const pol = Math.acos(1 - R() * (1 - Math.cos(1.0))), az = R() * TAU - PI;
     if (pol > hairline(az) - 0.07) continue;
     const k = 1 - pol / 1.2;

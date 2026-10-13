@@ -34,11 +34,11 @@
   function herringbone() {
     return canvasTex(512, (g, s) => {
       const R = rnd(3); g.fillStyle = '#ebebeb'; g.fillRect(0, 0, s, s);
-      const bw = 32;
+      const bw = 10;
       for (let bx = 0; bx < s; bx += bw) {
         const dir = ((bx / bw) | 0) % 2 ? 1 : -1;
         g.save(); g.beginPath(); g.rect(bx, 0, bw, s); g.clip();
-        for (let y = -bw; y < s + bw; y += 4) { g.strokeStyle = 'rgba(0,0,0,' + (0.07 + R() * 0.12) + ')'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(bx, y); g.lineTo(bx + bw, y + dir * bw * 0.5); g.stroke(); }
+        for (let y = -bw; y < s + bw; y += 4) { g.strokeStyle = 'rgba(0,0,0,' + (0.04 + R() * 0.06) + ')'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, y); g.lineTo(bx + bw, y + dir * bw * 0.5); g.stroke(); }
         g.restore();
         g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(bx, 0, 1.5, s);
       }
@@ -122,11 +122,11 @@
     mats.nail = P({ color: lin('#e6c1b6'), roughness: 0.25, clearcoat: 0.5, clearcoatRoughness: 0.2 });
     mats.hair = P({ color: lin('#171212'), roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.35, vertexColors: true });
     mats.hairCap = S({ color: lin('#100c0c'), roughness: 0.5, map: hairTex, bumpMap: hairTex, bumpScale: 0.5 });
-    mats.blazer = S({ color: lin(state.colors.blazer), roughness: state.rough, map: fab, bumpMap: fab, bumpScale: 0.6 });
+    mats.blazer = S({ color: lin(state.colors.blazer), roughness: state.rough, map: fab, bumpMap: fab, bumpScale: 0.12 });
     mats.blazerLining = S({ color: lin('#2b1d1c'), roughness: 0.45 });
     mats.blazerSeam = S({ color: lin('#2a1c19'), roughness: 0.9 });
-    mats.top = S({ color: lin(state.colors.top), roughness: state.rough, map: crep, bumpMap: crep, bumpScale: 0.5 });
-    mats.trousers = S({ color: lin(state.colors.trousers), roughness: state.rough, map: crep2, bumpMap: crep2, bumpScale: 0.5 });
+    mats.top = S({ color: lin(state.colors.top), roughness: state.rough, map: crep, bumpMap: crep, bumpScale: 0.08 });
+    mats.trousers = S({ color: lin(state.colors.trousers), roughness: state.rough, map: crep2, bumpMap: crep2, bumpScale: 0.08 });
     mats.trousersSeam = S({ color: lin('#2b1c1d'), roughness: 0.9 });
     mats.button = P({ color: lin('#1e1411'), roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.25 });
     mats.buttonHole = S({ color: 0x050303, roughness: 0.9 });

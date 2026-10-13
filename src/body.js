@@ -1,5 +1,5 @@
 /* ===== Body, garments, hands, feet, accessories ===== */
-const HC = [0, 1.492, 0.012];           // head centre
+const HC = [0, 1.462, 0.012];           // head centre
 const S0 = [0.152, 1.286, 0.0], SH = [0.178, 1.283, 0.004], EL = [0.240, 1.045, 0.012], WR = [0.275, 0.840, 0.016];
 const ARM_D = norm(sub(WR, EL));
 
@@ -53,9 +53,9 @@ function buildTop() {
 }
 function buildNeck() {
   const m = M('skin');
-  const rows = [[1.24, .070, .068, 0], [1.30, .060, .061, .002], [1.36, .054, .056, .006], [1.41, .052, .056, .010], [1.47, .052, .057, .014]];
+  const rows = [[1.25, .070, .068, 0], [1.30, .060, .061, .002], [1.34, .055, .057, .005], [1.39, .052, .056, .009], [1.43, .052, .057, .012]];
   const rings = [];
-  for (let y = 1.24; y <= 1.4701; y += 0.02) { const [rx, rz, cz] = table(rows, y); rings.push(ringXZ(y, 0, cz, rx, rz, 2.1, 32)); }
+  for (let y = 1.25; y <= 1.4301; y += 0.02) { const [rx, rz, cz] = table(rows, y); rings.push(ringXZ(y, 0, cz, rx, rz, 2.1, 32)); }
   loft(m, rings);
 }
 
@@ -93,11 +93,11 @@ function buildJacket() {
   const outer = M('blazer'), lining = M('blazerLining');
   thickPatch(outer, lining, outer, jacketP, 96, 46, 0.0058, { hint: p => [p[0], 0, p[2]], tile: 0.08 });
   // lapels
-  const LW = [[1.0, 0], [1.05, .030], [1.12, .054], [1.20, .068], [1.26, .070], [1.295, .040], [1.318, .012]];
+  const LW = [[1.0, 0], [1.05, .020], [1.12, .034], [1.20, .042], [1.26, .044], [1.295, .032], [1.318, .010]];
   for (const sg of [1, -1]) {
     thickPatch(outer, lining, outer, (s, w) => {
       const y = 1.0 + s * 0.318, xin = xe(y), wl = table(LW, y)[0];
-      const x = sg * Math.min(xin + w * wl, 0.9 * table(JROWS, y)[0]);
+      const x = sg * (xin + w * wl);
       const off = 0.0042 + 0.0058 * Math.sin(PI * Math.pow(w, 0.8)) + 0.0020 * s * w;
       return jacketFront(x, y, off).p;
     }, 40, 12, 0.0052, { hint: [0, 0, 1], tile: 0.08 });
@@ -107,9 +107,9 @@ function buildJacket() {
   thickPatch(outer, outer, outer, (s, w) => {
     const a = CB + s * (TAU - 2 * CB), hs = 0.7 + 0.3 * Math.pow(Math.sin(PI * s), 0.7);
     const back = smooth(-0.2, -1, Math.cos(a));
-    const yc = 1.326 + 0.007 * back;
+    const yc = 1.322 + 0.004 * back;
     const dr = table([[0, 0], [.25, .004], [.5, .014], [.75, .026], [1, .034]], w)[0];
-    const dy = table([[0, 0], [.25, .019], [.5, .030], [.75, .027], [1, .012]], w)[0] * hs;
+    const dy = table([[0, 0], [.25, .010], [.5, .016], [.75, .014], [1, .006]], w)[0] * hs;
     const rx = 0.072 + dr, rz = 0.066 + dr;
     return [rx * Math.sin(a), yc + dy, -0.006 + rz * Math.cos(a)];
   }, 64, 14, 0.0048, { hint: p => [p[0], 0.3, p[2] + 0.006], tile: 0.08 });
