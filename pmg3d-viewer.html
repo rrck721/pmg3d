@@ -1,0 +1,1502 @@
+<title>PriyaMG Character Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: full-height stage with a compact inspection panel on the right (stacked under the stage on phones). */
+  :root {
+    --bg: #eceae8;
+    --panel: #f6f4f2;
+    --fg: #231d1c;
+    --muted: #6d6360;
+    --line: #d9d4d0;
+    --accent: #6b3f36;
+    --accent-fg: #ffffff;
+    --field: #ffffff;
+    --stage: #d8dade;
+    --font-ui: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161312; --panel: #1f1b1a; --fg: #efe9e6; --muted: #a89d99; --line: #353030; --accent: #d8a89c; --accent-fg: #1a1210; --field: #2a2524; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161312; --panel: #1f1b1a; --fg: #efe9e6; --muted: #a89d99; --line: #353030; --accent: #d8a89c; --accent-fg: #1a1210; --field: #2a2524; color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 13px; line-height: 1.35; overflow: hidden; }
+  *, *::before, *::after { box-sizing: border-box; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 304px; height: 100%; }
+  .stage { position: relative; min-width: 0; min-height: 0; background: var(--stage); overflow: hidden; touch-action: none; }
+  .stage canvas { display: block; width: 100%; height: 100%; cursor: grab; outline: none; }
+  .stage canvas:active { cursor: grabbing; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #5b5f66; font-size: 13px; letter-spacing: .04em; pointer-events: none; }
+  .loading[hidden] { display: none !important; }
+  .panel { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .brand { display: flex; flex-direction: column; gap: 1px; }
+  .brand b { font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+  .brand span { color: var(--muted); font-size: 12px; }
+  section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  h2 { margin: 0; font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+  button { font: inherit; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; cursor: pointer; min-width: 0; line-height: 1.15; }
+  button:hover { border-color: var(--accent); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 500; }
+  button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .wide { grid-column: 1 / -1; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 7px 4px; font-size: 12px; }
+  .seg button:last-child { border-right: 0; }
+  .colors { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .color { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .color input { appearance: none; -webkit-appearance: none; width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; flex: none; }
+  .color input::-webkit-color-swatch-wrapper { padding: 2px; }
+  .color input::-webkit-color-swatch { border: 0; border-radius: 4px; }
+  .color input::-moz-color-swatch { border: 0; border-radius: 4px; }
+  .color label { color: var(--fg); min-width: 0; }
+  .row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 38px; align-items: center; gap: 8px; }
+  .row output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; min-width: 0; }
+  .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .switch input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  @media (max-width: 820px) {
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); }
+    .panel { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+
+<main class="app">
+  <div class="stage" id="stage"><div class="loading" id="loading">Building character…</div></div>
+  <aside class="panel" aria-label="Inspection controls">
+    <div class="brand"><b>PriyaMG</b><span>Character viewer</span></div>
+
+    <section aria-labelledby="h-view">
+      <h2 id="h-view">View</h2>
+      <div class="grid2">
+        <button data-view="front">Front</button>
+        <button data-view="tq">Three-quarter</button>
+        <button data-view="left">Left side</button>
+        <button data-view="right">Right side</button>
+        <button data-view="back">Back</button>
+        <button data-view="top">Top</button>
+        <button data-view="face" class="wide">Face close-up</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-cam">
+      <h2 id="h-cam">Camera</h2>
+      <div class="grid2">
+        <button id="zin">Zoom +</button>
+        <button id="zout">Zoom −</button>
+        <button id="fit">Fit character</button>
+        <button id="resetView">Reset view</button>
+      </div>
+      <div class="hint">Drag to orbit, right-drag or Shift-drag to pan, scroll to zoom.</div>
+    </section>
+
+    <section aria-labelledby="h-col">
+      <h2 id="h-col">Colours</h2>
+      <div class="colors">
+        <div class="color"><input type="color" id="c-blazer" aria-label="Blazer colour"><label for="c-blazer">Blazer</label></div>
+        <div class="color"><input type="color" id="c-top" aria-label="Inner top colour"><label for="c-top">Inner top</label></div>
+        <div class="color"><input type="color" id="c-trousers" aria-label="Trousers colour"><label for="c-trousers">Trousers</label></div>
+        <div class="color"><input type="color" id="c-shoe" aria-label="Footwear colour"><label for="c-shoe">Footwear</label></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-light">
+      <h2 id="h-light">Lighting</h2>
+      <div class="seg" role="group" aria-label="Lighting preset">
+        <button data-light="soft" aria-pressed="true">Soft Studio</button>
+        <button data-light="warm" aria-pressed="false">Warm Studio</button>
+        <button data-light="cool" aria-pressed="false">Cool Studio</button>
+      </div>
+      <div class="row"><label for="s-dir">Direction</label><input type="range" id="s-dir" min="-180" max="180" step="1"><output id="o-dir"></output></div>
+      <div class="row"><label for="s-int">Intensity</label><input type="range" id="s-int" min="0.3" max="1.8" step="0.01"><output id="o-int"></output></div>
+      <div class="row"><label for="s-exp">Exposure</label><input type="range" id="s-exp" min="0.5" max="1.8" step="0.01"><output id="o-exp"></output></div>
+    </section>
+
+    <section aria-labelledby="h-mat">
+      <h2 id="h-mat">Material</h2>
+      <div class="row"><label for="s-rough">Fabric rough.</label><input type="range" id="s-rough" min="0.35" max="1" step="0.01"><output id="o-rough"></output></div>
+    </section>
+
+    <section aria-labelledby="h-disp">
+      <h2 id="h-disp">Display</h2>
+      <label class="switch"><input type="checkbox" id="t-wire"> Wireframe</label>
+      <label class="switch"><input type="checkbox" id="t-floor" checked> Studio floor</label>
+    </section>
+
+    <button class="primary" id="resetAll">Reset all</button>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const buildModel = (function () {
+/* ===== Geometry core: pure JS, no dependencies ===== */
+const PI = Math.PI, TAU = Math.PI * 2;
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vlen = (a) => Math.sqrt(dot(a, a));
+const norm = (a) => { const l = vlen(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const dist3 = (a, b) => vlen(sub(a, b));
+const gauss = (x, s) => Math.exp(-(x * x) / (2 * s * s));
+const mirrorX = (p) => [-p[0], p[1], p[2]];
+
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hash2(ix, iy) { let h = Math.imul(ix, 374761393) + Math.imul(iy, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967295; }
+function vnoise(x, y) { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy; const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); return (lerp(lerp(hash2(ix, iy), hash2(ix + 1, iy), u), lerp(hash2(ix, iy + 1), hash2(ix + 1, iy + 1), u), v)) * 2 - 1; }
+
+/* Cardinal-interpolated table lookup. rows: [[key, v1, v2, ...], ...] ascending by key */
+function table(rows, k) {
+  const n = rows.length;
+  if (k <= rows[0][0]) return rows[0].slice(1);
+  if (k >= rows[n - 1][0]) return rows[n - 1].slice(1);
+  let i = 0; while (i < n - 2 && k > rows[i + 1][0]) i++;
+  const r0 = rows[Math.max(0, i - 1)], r1 = rows[i], r2 = rows[i + 1], r3 = rows[Math.min(n - 1, i + 2)];
+  const t = (k - r1[0]) / (r2[0] - r1[0]);
+  const out = [];
+  for (let c = 1; c < r1.length; c++) {
+    const m1 = (r2[c] - r0[c]) / Math.max(1e-9, (r2[0] - r0[0])) * (r2[0] - r1[0]);
+    const m2 = (r3[c] - r1[c]) / Math.max(1e-9, (r3[0] - r1[0])) * (r2[0] - r1[0]);
+    const t2 = t * t, t3 = t2 * t;
+    out.push((2 * t3 - 3 * t2 + 1) * r1[c] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * r2[c] + (t3 - t2) * m2);
+  }
+  return out;
+}
+
+/* ---------- Mesh container ---------- */
+class Mesh {
+  constructor(mat) { this.mat = mat; this.pos = []; this.uv = []; this.col = null; this.idx = []; }
+  get count() { return this.pos.length / 3; }
+  addV(p, uv, col) {
+    this.pos.push(p[0], p[1], p[2]);
+    this.uv.push(uv ? uv[0] : 0, uv ? uv[1] : 0);
+    if (col && !this.col) { this.col = new Array(this.pos.length - 3).fill(1); }
+    if (this.col) { if (col) this.col.push(col[0], col[1], col[2]); else this.col.push(1, 1, 1); }
+    return this.pos.length / 3 - 1;
+  }
+  tri(a, b, c) { this.idx.push(a, b, c); }
+  append(o) {
+    const off = this.count;
+    if (o.col && !this.col) this.col = new Array(this.pos.length).fill(1);
+    for (let i = 0; i < o.pos.length; i++) this.pos.push(o.pos[i]);
+    for (let i = 0; i < o.uv.length; i++) this.uv.push(o.uv[i]);
+    if (this.col) { if (o.col) for (let i = 0; i < o.col.length; i++) this.col.push(o.col[i]); else for (let i = 0; i < o.pos.length; i++) this.col.push(1); }
+    for (let i = 0; i < o.idx.length; i++) this.idx.push(o.idx[i] + off);
+    return this;
+  }
+  transform(fn) { for (let i = 0; i < this.pos.length; i += 3) { const p = fn([this.pos[i], this.pos[i + 1], this.pos[i + 2]]); this.pos[i] = p[0]; this.pos[i + 1] = p[1]; this.pos[i + 2] = p[2]; } return this; }
+  /* mirror across x=0, returns new mesh with corrected winding */
+  mirrored() {
+    const m = new Mesh(this.mat); m.pos = this.pos.slice(); m.uv = this.uv.slice(); m.col = this.col ? this.col.slice() : null;
+    for (let i = 0; i < m.pos.length; i += 3) m.pos[i] = -m.pos[i];
+    m.idx = new Array(this.idx.length);
+    for (let i = 0; i < this.idx.length; i += 3) { m.idx[i] = this.idx[i]; m.idx[i + 1] = this.idx[i + 2]; m.idx[i + 2] = this.idx[i + 1]; }
+    return m;
+  }
+  P(i) { return [this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2]]; }
+}
+
+function computeNormals(m) {
+  const n = m.count, acc = new Float64Array(n * 3);
+  for (let i = 0; i < m.idx.length; i += 3) {
+    const a = m.idx[i], b = m.idx[i + 1], c = m.idx[i + 2];
+    const pa = m.P(a), pb = m.P(b), pc = m.P(c);
+    const f = cross(sub(pb, pa), sub(pc, pa));
+    for (const v of [a, b, c]) { acc[v * 3] += f[0]; acc[v * 3 + 1] += f[1]; acc[v * 3 + 2] += f[2]; }
+  }
+  // weld by position
+  const map = new Map(), q = 1e5;
+  for (let v = 0; v < n; v++) {
+    const k = Math.round(m.pos[v * 3] * q) + ',' + Math.round(m.pos[v * 3 + 1] * q) + ',' + Math.round(m.pos[v * 3 + 2] * q);
+    let e = map.get(k); if (!e) { e = [0, 0, 0]; map.set(k, e); }
+    e[0] += acc[v * 3]; e[1] += acc[v * 3 + 1]; e[2] += acc[v * 3 + 2];
+  }
+  const nor = new Float32Array(n * 3);
+  for (let v = 0; v < n; v++) {
+    const k = Math.round(m.pos[v * 3] * q) + ',' + Math.round(m.pos[v * 3 + 1] * q) + ',' + Math.round(m.pos[v * 3 + 2] * q);
+    const e = map.get(k); const nn = norm(e);
+    nor[v * 3] = nn[0]; nor[v * 3 + 1] = nn[1]; nor[v * 3 + 2] = nn[2];
+  }
+  return nor;
+}
+
+/* ---------- Loft through rings ---------- */
+const UV_TILE = 0.08;
+function loft(mesh, rings, o = {}) {
+  const closed = o.closed !== false, R = rings.length, n = rings[0].length, cols = closed ? n + 1 : n;
+  const base = mesh.count, tile = o.tile || UV_TILE;
+  const cents = rings.map(r => { let c = [0, 0, 0]; for (const p of r) c = add(c, p); return mul(c, 1 / r.length); });
+  let vAcc = 0;
+  for (let i = 0; i < R; i++) {
+    if (i > 0) vAcc += dist3(cents[i], cents[i - 1]);
+    let uAcc = 0;
+    for (let j = 0; j < cols; j++) {
+      const p = rings[i][j % n];
+      if (j > 0) uAcc += dist3(p, rings[i][(j - 1) % n]);
+      mesh.addV(p, [uAcc / tile, vAcc / tile], o.colFn ? o.colFn(p, i, j) : null);
+    }
+  }
+  const start = mesh.idx.length;
+  for (let i = 0; i < R - 1; i++) for (let j = 0; j < cols - 1; j++) {
+    const a = base + i * cols + j, b = a + 1, c = a + cols, d = c + 1;
+    mesh.tri(a, c, b); mesh.tri(b, c, d);
+  }
+  // auto-orient outward from ring centroid
+  let score = 0;
+  for (let t = start; t < mesh.idx.length; t += 3) {
+    const pa = mesh.P(mesh.idx[t]), pb = mesh.P(mesh.idx[t + 1]), pc = mesh.P(mesh.idx[t + 2]);
+    const f = cross(sub(pb, pa), sub(pc, pa));
+    const ci = Math.min(R - 1, Math.floor((mesh.idx[t] - base) / cols));
+    const out = sub(mul(add(add(pa, pb), pc), 1 / 3), cents[ci]);
+    score += dot(f, out);
+  }
+  let flip = score < 0; if (o.reverse) flip = !flip;
+  if (flip) for (let t = start; t < mesh.idx.length; t += 3) { const x = mesh.idx[t + 1]; mesh.idx[t + 1] = mesh.idx[t + 2]; mesh.idx[t + 2] = x; }
+  return { base, cols, rows: R, flipped: flip };
+}
+
+/* fan cap from a ring; faces `hint` direction */
+function fan(mesh, ring, hint, o = {}) {
+  let c = [0, 0, 0]; for (const p of ring) c = add(c, p); c = mul(c, 1 / ring.length);
+  const ci = mesh.addV(c, [0.5, 0.5]), base = mesh.count;
+  for (let j = 0; j < ring.length; j++) mesh.addV(ring[j], [0.5 + (ring[j][0] - c[0]) / UV_TILE, 0.5 + (ring[j][2] - c[2]) / UV_TILE]);
+  for (let j = 0; j < ring.length; j++) {
+    const a = base + j, b = base + (j + 1) % ring.length;
+    const f = cross(sub(ring[j], c), sub(ring[(j + 1) % ring.length], c));
+    if (dot(f, hint) >= 0) mesh.tri(ci, a, b); else mesh.tri(ci, b, a);
+  }
+}
+
+/* catmull-rom sampling of control points -> N+1 points */
+function spline(pts, N) {
+  const out = [], m = pts.length - 1;
+  for (let k = 0; k <= N; k++) {
+    const u = k / N * m; let i = Math.min(m - 1, Math.floor(u)); const t = u - i;
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(m, i + 2)];
+    const t2 = t * t, t3 = t2 * t, r = [0, 0, 0];
+    for (let c = 0; c < 3; c++) r[c] = 0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3);
+    out.push(r);
+  }
+  return out;
+}
+
+/* tube along dense path. radiusFn(t,i)->[r1,r2] | number. ref = direction of first axis */
+function tube(mesh, path, radiusFn, o = {}) {
+  if (typeof radiusFn === 'number') { const rv = radiusFn; radiusFn = () => rv; }
+  const sides = o.sides || 12, ref = o.ref || [0, 0, 1], N = path.length;
+  const rings = [];
+  for (let i = 0; i < N; i++) {
+    const T = norm(sub(path[Math.min(N - 1, i + 1)], path[Math.max(0, i - 1)]));
+    let A = sub(ref, mul(T, dot(ref, T))); if (vlen(A) < 1e-4) A = sub([1, 0, 0], mul(T, T[0]));
+    A = norm(A); const B = norm(cross(T, A));
+    let r = radiusFn(i / (N - 1), i); if (typeof r === 'number') r = [r, r];
+    const ring = [];
+    for (let s = 0; s < sides; s++) { const a = s / sides * TAU; const mm = o.mod ? o.mod(i / (N - 1), a, i) : 1; ring.push(add(path[i], add(mul(A, r[0] * mm * Math.cos(a)), mul(B, r[1] * mm * Math.sin(a))))); }
+    rings.push(ring);
+  }
+  const info = loft(mesh, rings, { tile: o.tile, reverse: o.reverse, colFn: o.colFn });
+  if (o.capStart) fan(mesh, rings[0], sub(path[0], path[1]));
+  if (o.capEnd) fan(mesh, rings[N - 1], sub(path[N - 1], path[N - 2]));
+  return rings;
+}
+const roundCap = (t, start = 0.88) => t < start ? 1 : Math.sqrt(Math.max(0.0, 1 - Math.pow((t - start) / (1 - start), 2)));
+const roundCap2 = (t, a = 0.06, b = 0.88) => Math.min(t < a ? Math.sqrt(Math.max(0, 1 - Math.pow((a - t) / a, 2))) : 1, roundCap(t, b));
+
+/* torus-like loop: closed centre path of points, circular cross-section */
+function loopTube(mesh, centers, r, o = {}) {
+  const n = centers.length, sides = o.sides || 8, rings = [];
+  let cc = [0, 0, 0]; for (const p of centers) cc = add(cc, p); cc = mul(cc, 1 / n);
+  const axis = o.axis || [0, 1, 0];
+  for (let i = 0; i <= n; i++) {
+    const p = centers[i % n], pn = centers[(i + 1) % n], pp = centers[(i + n - 1) % n];
+    const T = norm(sub(pn, pp));
+    let A = norm(sub(p, cc)); A = norm(sub(A, mul(T, dot(A, T))));
+    const B = norm(cross(T, A));
+    const rr = typeof r === 'function' ? r(i / n) : r;
+    const ra = Array.isArray(rr) ? rr : [rr, rr];
+    const ring = [];
+    for (let s = 0; s < sides; s++) { const a = s / sides * TAU; ring.push(add(p, add(mul(A, ra[0] * Math.cos(a)), mul(B, ra[1] * Math.sin(a))))); }
+    rings.push(ring);
+  }
+  // loop closes: last ring == first ring geometry; use closed=true on ring but rows wrap by duplicate
+  loft(mesh, rings, { tile: o.tile });
+}
+
+/* XZ ring (y-up superellipse). alpha=0 front(+z), pi/2 -> +x */
+function ringXZ(y, cx, cz, rx, rz, p, n, mod) {
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = k / n * TAU, s = Math.sin(a), c = Math.cos(a);
+    const sx = Math.sign(s) * Math.pow(Math.abs(s), 2 / p), sz = Math.sign(c) * Math.pow(Math.abs(c), 2 / p);
+    const m = mod ? mod(a, y, sx, sz) : 0;
+    pts.push([cx + (rx + m) * sx, y, cz + (rz + m) * sz]);
+  }
+  return pts;
+}
+
+/* Thick surface patch. P(s,w)->[x,y,z]; surface normal = dP/ds x dP/dw. */
+function thickPatch(top, base, edge, P, ns, nw, thick, o = {}) {
+  const G = [], T = [], B = [];
+  for (let i = 0; i <= ns; i++) { G.push([]); for (let j = 0; j <= nw; j++) G[i].push(P(i / ns, j / nw)); }
+  const Nrm = (i, j) => {
+    const i0 = Math.max(0, i - 1), i1 = Math.min(ns, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nw, j + 1);
+    let n = norm(cross(sub(G[i1][j], G[i0][j]), sub(G[i][j1], G[i][j0]))); if (o.flip) n = mul(n, -1); return n;
+  };
+  if (o.hint && !o.flip) {
+    const ci = Math.floor(ns / 2), cj = Math.floor(nw / 2);
+    const n0 = Nrm(ci, cj); const h = typeof o.hint === 'function' ? o.hint(G[ci][cj]) : o.hint;
+    if (dot(n0, h) < 0) { o = Object.assign({}, o, { flip: true }); }
+  }
+  const th = typeof thick === 'function' ? thick : () => thick;
+  for (let i = 0; i <= ns; i++) { T.push([]); B.push([]); for (let j = 0; j <= nw; j++) { const n = Nrm(i, j), t = th(i / ns, j / nw); T[i].push(add(G[i][j], mul(n, t * (o.topFrac !== undefined ? o.topFrac : 0.5)))); B[i].push(sub(G[i][j], mul(n, t * (o.topFrac !== undefined ? 1 - o.topFrac : 0.5)))); } }
+  let su = [0]; for (let i = 1; i <= ns; i++) su.push(su[i - 1] + dist3(G[i][0], G[i - 1][0]));
+  let sw = [0]; for (let j = 1; j <= nw; j++) sw.push(sw[j - 1] + dist3(G[0][j], G[0][j - 1]));
+  const tile = o.tile || UV_TILE;
+  const addSurf = (mesh, S, rev) => {
+    const b0 = mesh.count;
+    for (let i = 0; i <= ns; i++) for (let j = 0; j <= nw; j++) mesh.addV(S[i][j], o.uvFn ? o.uvFn(i / ns, j / nw) : [su[i] / tile, sw[j] / tile], o.colFn ? o.colFn(S[i][j], i / ns, j / nw) : null);
+    for (let i = 0; i < ns; i++) for (let j = 0; j < nw; j++) {
+      const a = b0 + i * (nw + 1) + j, b = a + 1, c = a + nw + 1, d = c + 1;
+      if (!rev) { mesh.tri(a, c, b); mesh.tri(b, c, d); } else { mesh.tri(a, b, c); mesh.tri(b, d, c); }
+    }
+  };
+  addSurf(top, T, false); addSurf(base, B, true);
+  const strip = (pa, pb, qa, qb, hint) => {
+    const b0 = edge.count; const i0 = edge.addV(pa, [0, 0]), i1 = edge.addV(pb, [0.1, 0]), i2 = edge.addV(qa, [0, 0.1]), i3 = edge.addV(qb, [0.1, 0.1]);
+    const f = cross(sub(pb, pa), sub(qb, pa));
+    if (dot(f, hint) >= 0) { edge.tri(i0, i1, i3); edge.tri(i0, i3, i2); } else { edge.tri(i0, i3, i1); edge.tri(i0, i2, i3); }
+  };
+  if (!o.noEdges) {
+    const edges = o.edges || [true, true, true, true];
+    if (edges[0]) for (let j = 0; j < nw; j++) strip(T[0][j], T[0][j + 1], B[0][j], B[0][j + 1], sub(G[0][j], G[Math.min(1, ns)][j]));
+    if (edges[1]) for (let j = 0; j < nw; j++) strip(T[ns][j], T[ns][j + 1], B[ns][j], B[ns][j + 1], sub(G[ns][j], G[Math.max(0, ns - 1)][j]));
+    if (edges[2]) for (let i = 0; i < ns; i++) strip(T[i][0], T[i + 1][0], B[i][0], B[i + 1][0], sub(G[i][0], G[i][Math.min(1, nw)]));
+    if (edges[3]) for (let i = 0; i < ns; i++) strip(T[i][nw], T[i + 1][nw], B[i][nw], B[i + 1][nw], sub(G[i][nw], G[i][Math.max(0, nw - 1)]));
+  }
+  return { G, T, B };
+}
+
+/* ellipsoid with arbitrary local basis. basis = {c, x, y, z} unit vectors; radii [rx,ry,rz]. Poles on y. */
+function ellipsoid(mesh, c, radii, o = {}) {
+  const nu = o.nu || 18, nv = o.nv || 12, bx = o.bx || [1, 0, 0], by = o.by || [0, 1, 0], bz = o.bz || [0, 0, 1];
+  const t0 = o.t0 || 0, t1 = o.t1 !== undefined ? o.t1 : PI, p0 = o.p0 || 0, p1 = o.p1 !== undefined ? o.p1 : TAU;
+  const rings = [];
+  for (let j = 0; j <= nv; j++) {
+    const th = lerp(t0, t1, j / nv), ring = [];
+    const full = Math.abs(p1 - p0 - TAU) < 1e-6;
+    const cnt = full ? nu : nu + 1;
+    for (let i = 0; i < cnt; i++) {
+      const ph = lerp(p0, p1, i / (full ? nu : nu));
+      const lx = Math.sin(th) * Math.sin(ph) * radii[0], ly = Math.cos(th) * radii[1], lz = Math.sin(th) * Math.cos(ph) * radii[2];
+      ring.push(add(c, add(add(mul(bx, lx), mul(by, ly)), mul(bz, lz))));
+    }
+    rings.push(ring);
+  }
+  const full = Math.abs(p1 - p0 - TAU) < 1e-6;
+  loft(mesh, rings, { closed: full, tile: o.tile, reverse: o.reverse });
+}
+
+/* Convex polygon extrusion with rounded/bevelled edge. outline: [[x,z],...] ; height fn h(x,z) top y; bottom y0 */
+function slab(mesh, outline, y0, topFn, bevel, o = {}) {
+  const n = outline.length; let cx = 0, cz = 0; for (const p of outline) { cx += p[0]; cz += p[1]; } cx /= n; cz /= n;
+  const inset = (p, d) => { const dx = p[0] - cx, dz = p[1] - cz, l = Math.hypot(dx, dz) || 1; return [p[0] - dx / l * d, p[1] - dz / l * d]; };
+  const ringAt = (d, yf) => outline.map(p => { const q = inset(p, d); return [q[0], yf(q[0], q[1]), q[1]]; });
+  const b = bevel;
+  const rings = [
+    ringAt(b * 0.95, () => y0),
+    ringAt(b * 0.45, (x, z) => y0 + b * 0.25),
+    ringAt(0, (x, z) => y0 + b),
+    ringAt(0, (x, z) => topFn(x, z) - b),
+    ringAt(b * 0.45, (x, z) => topFn(x, z) - b * 0.25),
+    ringAt(b * 0.95, (x, z) => topFn(x, z)),
+  ];
+  loft(mesh, rings);
+  fan(mesh, rings[0], [0, -1, 0]);
+  fan(mesh, rings[5], [0, 1, 0]);
+}
+
+/* flat ring-to-ring strip, facing `hint` */
+function annulus(mesh, ra, rb, hint) {
+  const n = ra.length, b0 = mesh.count;
+  for (const p of ra) mesh.addV(p, [p[0] / UV_TILE, p[2] / UV_TILE]);
+  for (const p of rb) mesh.addV(p, [p[0] / UV_TILE, p[2] / UV_TILE]);
+  for (let j = 0; j < n; j++) {
+    const j2 = (j + 1) % n, a = b0 + j, b = b0 + j2, c = b0 + n + j, d = b0 + n + j2;
+    const f = cross(sub(ra[j2], ra[j]), sub(rb[j], ra[j]));
+    if (dot(f, hint) >= 0) { mesh.tri(a, b, c); mesh.tri(b, d, c); } else { mesh.tri(a, c, b); mesh.tri(b, c, d); }
+  }
+}
+
+/* ===== Body, garments, hands, feet, accessories ===== */
+const HC = [0, 1.462, 0.012];           // head centre
+const S0 = [0.152, 1.286, 0.0], SH = [0.178, 1.283, 0.004], EL = [0.240, 1.045, 0.012], WR = [0.275, 0.840, 0.016];
+const ARM_D = norm(sub(WR, EL));
+
+const registry = {};
+function M(id, mat) { if (!registry[id]) registry[id] = new Mesh(mat || id); return registry[id]; }
+
+/* orthonormal frame placement */
+function place(mesh, origin, bx, by, bz) {
+  return mesh.transform(p => add(origin, add(add(mul(bx, p[0]), mul(by, p[1])), mul(bz, p[2]))));
+}
+function ringAround(c, axis, ref, ra, rb, n, off) {
+  let A = sub(ref, mul(axis, dot(ref, axis))); A = norm(A); const B = norm(cross(axis, A)); const pts = [];
+  for (let k = 0; k < n; k++) { const a = k / n * TAU; const m = off ? off(a) : 0; pts.push(add(c, add(mul(A, (ra + m) * Math.cos(a)), mul(B, (rb + m) * Math.sin(a))))); }
+  return pts;
+}
+function shrinkRing(ring, d, c) {
+  if (!c) { c = [0, 0, 0]; for (const p of ring) c = add(c, p); c = mul(c, 1 / ring.length); }
+  return ring.map(p => { const dx = p[0] - c[0], dz = p[2] - c[2], l = Math.hypot(dx, dz) || 1; return [p[0] - dx / l * d, p[1], p[2] - dz / l * d]; });
+}
+function disc(mesh, c, n, r, h, holes) {
+  n = norm(n); let u = cross(n, [0, 1, 0]); if (vlen(u) < 0.2) u = cross(n, [1, 0, 0]); u = norm(u); const w = norm(cross(n, u));
+  const spec = [[0.94, 0], [1.0, 0.3], [1.0, 0.65], [0.88, 1.0], [0.60, 0.80]];
+  const rings = spec.map(([rr, hh]) => { const pts = []; for (let k = 0; k < 28; k++) { const a = k / 28 * TAU; pts.push(add(add(c, mul(n, hh * h)), add(mul(u, Math.cos(a) * rr * r), mul(w, Math.sin(a) * rr * r)))); } return pts; });
+  loft(mesh, rings); fan(mesh, rings[4], n); fan(mesh, rings[0], mul(n, -1));
+  if (holes) {
+    const hm = M('buttonHole');
+    for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const cc = add(add(add(c, mul(n, 0.83 * h + 0.0003)), mul(u, a * r * 0.2)), mul(w, b * r * 0.2));
+      const rr = []; for (let k = 0; k < 10; k++) { const t = k / 10 * TAU; rr.push(add(cc, add(mul(u, Math.cos(t) * r * 0.1), mul(w, Math.sin(t) * r * 0.1)))); }
+      fan(hm, rr, n);
+    }
+  }
+}
+function doubleShell(mesh, rings, inset, c) {
+  const inner = rings.map(r => shrinkRing(r, inset, c));
+  loft(mesh, inner, { reverse: true });
+}
+
+/* ---------------- inner top & neck ---------------- */
+function buildTop() {
+  const m = M('top');
+  const rows = [[0.92, .119, .085, 0, 2.2], [1.0, .124, .088, 0, 2.2], [1.06, .128, .092, .002, 2.2], [1.12, .135, .099, .005, 2.2], [1.18, .146, .108, .012, 2.3], [1.24, .150, .104, .008, 2.3], [1.27, .136, .084, -.003, 2.2]];
+  const rings = [];
+  for (let y = 0.92; y <= 1.27001; y += 0.0175) { const [rx, rz, cz, p] = table(rows, y); rings.push(ringXZ(y, 0, cz, rx, rz, p, 64, (a, yy, sx, sz) => 0.0009 * vnoise(a * 2.2, yy * 28))); }
+  const rim = []; const nr = 64;
+  for (let k = 0; k < nr; k++) { const a = k / nr * TAU, c = Math.cos(a), s = Math.sin(a); rim.push([0.067 * s, 1.318 - 0.038 * Math.pow(Math.max(0, c), 2) + 0.003 * Math.max(0, -c), -0.003 + 0.064 * c]); }
+  rings.push(rim);
+  loft(m, rings);
+  doubleShell(m, rings, 0.0025);
+  // hem edge inside trousers: tiny cap not needed
+}
+function buildNeck() {
+  const m = M('skin');
+  const rows = [[1.25, .070, .068, 0], [1.30, .060, .061, .002], [1.34, .055, .057, .005], [1.39, .052, .056, .009], [1.43, .052, .057, .012]];
+  const rings = [];
+  for (let y = 1.25; y <= 1.4301; y += 0.02) { const [rx, rz, cz] = table(rows, y); rings.push(ringXZ(y, 0, cz, rx, rz, 2.1, 32)); }
+  loft(m, rings);
+}
+
+/* ---------------- jacket ---------------- */
+const JROWS = [
+  [0.745, .196, .134, .000, 2.4], [0.80, .194, .131, .001, 2.4], [0.90, .186, .125, .003, 2.35], [1.00, .164, .110, .005, 2.3],
+  [1.10, .164, .110, .009, 2.3], [1.20, .172, .114, .011, 2.3], [1.255, .180, .108, .006, 2.4], [1.282, .178, .100, .002, 2.4], [1.300, .156, .092, -.001, 2.3],
+  [1.318, .122, .082, -.004, 2.2], [1.336, .088, .070, -.006, 2.1]];
+const JY0 = 0.745, JY1 = 1.336;
+const XE = [[.745, .034], [.85, .020], [.95, .008], [1.0, .003], [1.04, .016], [1.10, .038], [1.17, .056], [1.24, .068], [1.30, .074], [1.336, .078]];
+const xe = y => table(XE, y)[0];
+function jacketP(u, v) {
+  let y = JY0 + v * (JY1 - JY0);
+  const e = Math.min(u, 1 - u);
+  y += (1 - smooth(0, 0.05, e)) * (1 - smooth(0, 0.16, v)) * 0.030;
+  const [rx, rz, cz, p] = table(JROWS, y);
+  const xedge = Math.min(xe(y), rx * 0.97);
+  const a0 = Math.asin(Math.min(0.995, Math.pow(xedge / rx, p / 2)));
+  const a = a0 + u * (TAU - 2 * a0), s = Math.sin(a), c = Math.cos(a);
+  const sx = Math.sign(s) * Math.pow(Math.abs(s), 2 / p), sz = Math.sign(c) * Math.pow(Math.abs(c), 2 / p);
+  let d = 0.0013 * vnoise(u * 11, v * 8) + 0.0007 * vnoise(u * 29 + 5, v * 21);
+  if (c < 0) d += 0.007 * gauss(y - 1.2, 0.06) * (-c);                     // shoulder-blade volume
+  d += 0.0014 * Math.sin(a * 5 + y * 8) * smooth(0.95, 0.75, y) * (1 - smooth(0.0, 0.3, e) * 0.0);
+  d += 0.0035 * smooth(0.9, 0.745, y);                                       // gentle hem flare
+  d -= 0.0030 * gauss(y - 1.0, 0.035) * smooth(0.15, 0.0, Math.abs(Math.sin(a)));  // button cinch
+  return [(rx + d) * sx, y, cz + (rz + d) * sz];
+}
+function jacketFront(x, y, off) {
+  const f = (xx, yy) => { const [rx, rz, cz, p] = table(JROWS, yy); const ax = Math.min(Math.abs(xx) / rx, 0.995); return [xx, yy, cz + rz * Math.pow(1 - Math.pow(ax, p), 1 / p)]; };
+  const p0 = f(x, y), px = f(x + 0.003, y), py = f(x, y + 0.003);
+  let n = norm(cross(sub(px, p0), sub(py, p0))); if (n[2] < 0) n = mul(n, -1);
+  return { p: add(p0, mul(n, off)), n };
+}
+function buildJacket() {
+  const outer = M('blazer'), lining = M('blazerLining');
+  thickPatch(outer, lining, outer, jacketP, 96, 46, 0.0058, { hint: p => [p[0], 0, p[2]], tile: 0.08 });
+  // lapels
+  const LW = [[1.0, 0], [1.05, .020], [1.12, .034], [1.20, .042], [1.26, .044], [1.295, .032], [1.318, .010]];
+  for (const sg of [1, -1]) {
+    thickPatch(outer, lining, outer, (s, w) => {
+      const y = 1.0 + s * 0.318, xin = xe(y), wl = table(LW, y)[0];
+      const x = sg * (xin + w * wl);
+      const off = 0.0042 + 0.0058 * Math.sin(PI * Math.pow(w, 0.8)) + 0.0020 * s * w;
+      return jacketFront(x, y, off).p;
+    }, 40, 12, 0.0052, { hint: [0, 0, 1], tile: 0.08 });
+  }
+  // collar
+  const CB = 0.95;
+  thickPatch(outer, outer, outer, (s, w) => {
+    const a = CB + s * (TAU - 2 * CB), hs = 0.7 + 0.3 * Math.pow(Math.sin(PI * s), 0.7);
+    const back = smooth(-0.2, -1, Math.cos(a));
+    const yc = 1.322 + 0.004 * back;
+    const dr = table([[0, 0], [.25, .004], [.5, .014], [.75, .026], [1, .034]], w)[0];
+    const dy = table([[0, 0], [.25, .010], [.5, .016], [.75, .014], [1, .006]], w)[0] * hs;
+    const rx = 0.072 + dr, rz = 0.066 + dr;
+    return [rx * Math.sin(a), yc + dy, -0.006 + rz * Math.cos(a)];
+  }, 64, 14, 0.0048, { hint: p => [p[0], 0.3, p[2] + 0.006], tile: 0.08 });
+  // pockets
+  for (const sg of [1, -1]) {
+    thickPatch(outer, outer, outer, (s, w) => {
+      const x = sg * 0.108 + (s - 0.5) * 0.112, y = 0.835 + (w - 0.5) * 0.044 + (s - 0.5) * sg * -0.006;
+      const off = 0.0032 + 0.0042 * (1 - w) * (1 - w) + 0.0016 * Math.sin(PI * s) * Math.sin(PI * w);
+      return jacketFront(x, y, off).p;
+    }, 18, 6, 0.0042, { hint: [0, 0, 1], tile: 0.05 });
+    // welt line above flap (dark seam)
+    const seam = M('blazerSeam'); const pts = [];
+    for (let k = 0; k <= 16; k++) { const s = k / 16; const x = sg * 0.108 + (s - 0.5) * 0.118, y = 0.862 + (s - 0.5) * sg * -0.006; pts.push(jacketFront(x, y, 0.0026).p); }
+    tube(seam, pts, 0.0011, { sides: 6, capStart: true, capEnd: true });
+  }
+  // front button + seams
+  const bp = jacketFront(0, 1.0, 0.0035);
+  disc(M('button'), bp.p, bp.n, 0.0105, 0.0042, true);
+  // seams: centre back and side-back
+  const seam = M('blazerSeam');
+  const seamPts = (u0) => { const pts = []; for (let k = 0; k <= 40; k++) { const v = 0.04 + 0.92 * k / 40; const p = jacketP(u0, v); const [rx, rz] = table(JROWS, p[1]); const dd = norm([p[0], 0, p[2] - 0.0]); pts.push(add(p, mul(dd, 0.0029))); } return pts; };
+  for (const u0 of [0.5, 0.5 - 0.17, 0.5 + 0.17]) { const pts = seamPts(u0); tube(seam, pts, 0.0010, { sides: 6, capStart: true, capEnd: true }); }
+}
+
+/* ---------------- sleeves, arms, hands (left side; mirrored for right) ---------------- */
+const CUFF_TOP = lerp3(EL, WR, 0.22), CUFF_BOT = lerp3(EL, WR, 0.40);
+function buildArmSide(get) {
+  const sk = get('skin'), bl = get('blazer'), li = get('blazerLining'), sm = get('blazerSeam'), bt = get('button');
+  const ref = [1, 0, 0];
+  // sleeve
+  const path = spline([S0, add(lerp3(S0, EL, 0.5), [0.012, 0, 0.004]), EL, CUFF_TOP], 60);
+  const RT = [[0, .058, .054], [.15, .056, .056], [.5, .050, .051], [.78, .046, .046], [1, .0408, .0378]];
+  const rf = t => { const r = table(RT, t), d = roundCap2(t, 0.05, 2); return [r[0] * d, r[1] * d]; };
+  const modf = (t, a, i) => 1 + 0.012 * vnoise(a * 2.0 + 3, t * 9) + 0.022 * gauss(t - 0.8, 0.06) * Math.cos(a * 3 + 1) + 0.025 * gauss(t - 0.99, 0.05) * Math.sin(a * 6);
+  tube(bl, path, rf, { sides: 36, ref, mod: modf, tile: 0.08 });
+  tube(li, path, t => { const r = rf(t); return [Math.max(0.001, r[0] - 0.0045), Math.max(0.001, r[1] - 0.0045)]; }, { sides: 36, ref, reverse: true });
+  // armhole seam
+  
+  { const q = 9 / 60; loopTube(sm, ringAround(path[9], norm(sub(path[10], path[8])), ref, rf(q)[0] + 0.0008, rf(q)[1] + 0.0008, 40), 0.0012, { sides: 6 }); }
+  // rolled cuff
+  const Rc = rf(1);
+  const bandPath = []; for (let k = 0; k <= 8; k++) bandPath.push(lerp3(CUFF_TOP, CUFF_BOT, k / 8));
+  tube(bl, bandPath, t => [Rc[0] + 0.0062 + 0.0008 * Math.sin(t * PI), Rc[1] + 0.0062 + 0.0008 * Math.sin(t * PI)], { sides: 36, ref, mod: (t, a) => 1 + 0.012 * Math.sin(a * 5 + 1) * 0.5 });
+  loopTube(bl, ringAround(CUFF_BOT, ARM_D, ref, Rc[0] + 0.0066, Rc[1] + 0.0066, 44, a => 0.0006 * Math.sin(a * 7)), 0.0074, { sides: 12 });
+  loopTube(bl, ringAround(CUFF_TOP, ARM_D, ref, Rc[0] + 0.0036, Rc[1] + 0.0036, 44), 0.0058, { sides: 10 });
+  // lining visible in turned cuff: inner lip
+  loopTube(li, ringAround(lerp3(CUFF_TOP, CUFF_BOT, 0.5), ARM_D, ref, Rc[0] + 0.0068, Rc[1] + 0.0068, 44), 0.0014, { sides: 6 });
+  // cuff buttons
+  for (const k of [0.3, 0.72]) {
+    const c = lerp3(CUFF_TOP, CUFF_BOT, k);
+    const out = norm(sub([1, 0, 0.35], mul(ARM_D, dot([1, 0, 0.35], ARM_D))));
+    disc(bt, add(c, mul(out, Rc[0] + 0.0092)), out, 0.0058, 0.0034, false);
+  }
+  // forearm skin
+  const fpath = spline([lerp3(EL, WR, -0.1), lerp3(EL, WR, 0.3), lerp3(EL, WR, 0.7), WR, add(WR, mul(ARM_D, 0.012))], 24);
+  const FT = [[0, .036, .036], [.3, .031, .033], [.65, .0235, .0285], [.82, .0192, .0258], [1, .0186, .0262]];
+  tube(sk, fpath, t => table(FT, t), { sides: 20, ref });
+  buildHand(sk, get('nail'));
+}
+function buildHand(sk, nail) {
+  const Y = ARM_D; let X = norm(sub([1, 0, 0], mul(Y, Y[0]))); const Z = norm(cross(Y, X));
+  const o = WR;
+  const L = (lx, ly, lz) => add(o, add(add(mul(X, lx), mul(Y, ly)), mul(Z, lz)));
+  // palm
+  const PT = [[-0.012, .0186, .0262], [0, .0178, .0285], [.02, .0168, .0322], [.045, .0148, .0352], [.070, .0128, .0370], [.086, .0106, .0362], [.0925, .0070, .0310], [.0945, .003, .02]];
+  const rings = [];
+  for (let k = 0; k < PT.length; k++) {
+    const ring = []; const [ly, rt, rw] = PT[k];
+    for (let j = 0; j < 22; j++) { const a = j / 22 * TAU; const c = Math.cos(a), s = Math.sin(a); const sx = Math.sign(c) * Math.pow(Math.abs(c), 0.8), sz = Math.sign(s) * Math.pow(Math.abs(s), 0.85); ring.push(L(rt * sx - 0.0006, ly, rw * sz)); }
+    rings.push(ring);
+  }
+  loft(sk, rings); fan(sk, rings[PT.length - 1], Y);
+  // fingers: [z, length, radius, curl multiplier]
+  const FG = [[0.0238, .070, .0083, 1.0], [0.0080, .077, .0086, 1.1], [-0.0078, .070, .0081, 1.2], [-0.0230, .056, .0069, 1.35]];
+  FG.forEach(([zf, len, r, cm], idx) => {
+    const segs = [0.44, 0.31, 0.25], curl = [0.14 * cm, 0.30 * cm, 0.22 * cm];
+    let p = L(-0.001, 0.0885, zf); const pts = [p]; let phi = 0;
+    for (let s = 0; s < 3; s++) { phi += curl[s]; const dir = add(mul(Y, Math.cos(phi)), mul(X, -Math.sin(phi))); p = add(p, mul(dir, segs[s] * len)); pts.push(p); }
+    const dens = spline(pts, 18);
+    tube(sk, dens, t => { const rr = r * (1.0 - 0.2 * t) * roundCap(t, 0.86); return [rr * 0.9, rr]; }, { sides: 12, ref: X, capEnd: true });
+    // nail
+    const tip = pts[3], dirD = norm(sub(pts[3], pts[2]));
+    const nc = add(sub(tip, mul(dirD, 0.0062)), mul(X, r * 0.8 * 0.9 + 0.0004));
+    ellipsoid(nail, nc, [0.0043, 0.0054, 0.0015], { bx: Z, by: dirD, bz: X, nu: 12, nv: 8 });
+  });
+  // thumb
+  const th = [L(-0.004, 0.012, 0.028), L(-0.009, 0.036, 0.044), L(-0.015, 0.058, 0.053), L(-0.019, 0.075, 0.055), L(-0.021, 0.0905, 0.0545)];
+  const tp = spline(th, 20);
+  tube(sk, tp, t => { const rr = lerp(0.0125, 0.0088, t) * roundCap(t, 0.88); return [rr * 0.92, rr]; }, { sides: 14, ref: X, capEnd: true });
+  const tdir = norm(sub(th[4], th[3])), tn = norm(add(mul(X, 0.55), mul(Z, 0.85)));
+  ellipsoid(nail, add(sub(th[4], mul(tdir, 0.0065)), mul(tn, 0.0074)), [0.0052, 0.0064, 0.0015], { bx: norm(cross(tdir, tn)), by: tdir, bz: tn, nu: 12, nv: 8 });
+  // thenar pad
+  ellipsoid(sk, L(-0.012, 0.034, 0.030), [0.0115, 0.027, 0.0165], { bx: X, by: Y, bz: Z, nu: 14, nv: 10 });
+}
+function buildWatch() {
+  const Y = ARM_D; const X = norm(sub([1, 0, 0], mul(Y, Y[0]))); const Z = norm(cross(Y, X));
+  const Pw = sub(WR, mul(Y, 0.019));
+  const rx = 0.0197, rz = 0.0262, off = 0.0026;
+  const metal = M('metal');
+  // bracelet
+  const rows = []; const nW = 10, n = 100;
+  const prof = (ly) => 0.0030 * (1 - Math.pow(Math.abs(ly) / 0.0098, 6)) + 0.0006;
+  for (let j = 0; j <= nW; j++) {
+    const ly = -0.0098 + 0.0196 * j / nW, ring = [];
+    const groove = -0.0007 * (1 - smooth(0.0007, 0.0018, Math.abs(Math.abs(ly) - 0.0033)));
+    for (let k = 0; k < n; k++) {
+      const a = k / n * TAU, link = -0.0008 * (1 - smooth(0.05, 0.22, Math.abs(Math.sin(17 * a))));
+      const rr = off + prof(ly) + groove + link;
+      ring.push(add(Pw, add(add(mul(X, (rx + rr) * Math.cos(a)), mul(Z, (rz + rr) * Math.sin(a))), mul(Y, ly))));
+    }
+    rows.push(ring);
+  }
+  loft(metal, rows, {}); 
+  const inner = rows.map((r, j) => { const ly = -0.0098 + 0.0196 * j / nW; return r.map((p, k) => { const a = k / n * TAU; return add(Pw, add(add(mul(X, (rx + 0.0004) * Math.cos(a)), mul(Z, (rz + 0.0004) * Math.sin(a))), mul(Y, ly))); }); });
+  loft(metal, inner, { reverse: true });
+  // end caps of band
+  fan(metal, rows[0], mul(Y, -1)); fan(metal, rows[nW], Y);
+  // case
+  const hs = 0.0160, rr = 0.0048;
+  // build a clean rounded-rect outline instead
+  const out = []; const corners = [[1, 1, 0], [-1, 1, 90], [-1, -1, 180], [1, -1, 270]];
+  for (const [sx, sz, a0] of corners) for (let k = 0; k <= 8; k++) { const a = (a0 + k / 8 * 90) * PI / 180; out.push([sx * (hs - rr) + rr * Math.cos(a), sz * (hs - rr) + rr * Math.sin(a)]); }
+  const caseM = new Mesh('metal');
+  slab(caseM, out, 0, () => 0.0074, 0.0016);
+  place(caseM, add(Pw, mul(X, rx + off + 0.0002)), Y, X, Z);
+  metal.append(caseM);
+  // crown
+  const crown = new Mesh('metal'); ellipsoid(crown, [0, 0, 0], [0.0032, 0.0035, 0.0032], { nu: 12, nv: 8 });
+  crown.transform(p => add(p, [hs + 0.0018, 0.0038, 0])); place(crown, add(Pw, mul(X, rx + off + 0.0002)), Y, X, Z); metal.append(crown);
+  // dial (textured)
+  const dial = M('dial'); const dh = 0.0128;
+  const d0 = dial.addV([-dh, 0, -dh], [0, 1]), d1 = dial.addV([dh, 0, -dh], [0, 0]), d2 = dial.addV([dh, 0, dh], [1, 0]), d3 = dial.addV([-dh, 0, dh], [1, 1]);
+  dial.tri(d0, d3, d2); dial.tri(d0, d2, d1);
+  // ensure facing +y after place
+  dial.transform(p => [p[0], 0.0077, p[2]]);
+  place(dial, add(Pw, mul(X, rx + off + 0.0002)), Y, X, Z);
+  // glass
+  const glass = M('glass'); const gm = new Mesh('glass');
+  const outG = out.map(p => [p[0] * 0.86, p[1] * 0.86]);
+  slab(gm, outG, 0.0079, () => 0.0090, 0.0006);
+  place(gm, add(Pw, mul(X, rx + off + 0.0002)), Y, X, Z); glass.append(gm);
+}
+
+/* ---------------- trousers ---------------- */
+function buildTrousers() {
+  const m = M('trousers');
+  const PR = [[0.78, .172, .113, 0, 2.3], [0.83, .172, .113, 0, 2.3], [0.88, .166, .110, 0, 2.3], [0.93, .150, .102, -.002, 2.3], [0.98, .1305, .093, 0, 2.3], [1.005, .130, .092, 0, 2.3]];
+  const pr = [];
+  for (let y = 1.005; y >= 0.7799; y -= 0.0175) { const [rx, rz, cz, p] = table(PR, y); pr.push(ringXZ(y, 0, cz, rx, rz, p, 64)); }
+  loft(m, pr);
+  doubleShell(m, pr.slice(0, 4), 0.004);
+  const wring = (rx, rz, y) => { const out = []; for (let k = 0; k < 64; k++) { const a = k / 64 * TAU, s = Math.sin(a), c = Math.cos(a), p = 2.3; out.push([rx * Math.sign(s) * Math.pow(Math.abs(s), 2 / p), y, rz * Math.sign(c) * Math.pow(Math.abs(c), 2 / p)]); } return out; };
+  loopTube(m, wring(0.1295, 0.0925, 1.003), 0.0032, { sides: 8 });
+  loopTube(M('trousersSeam'), wring(0.1318, 0.0953, 0.9795), 0.0008, { sides: 5 });
+  // legs: build the +x leg, mirror for -x
+  const leg = new Mesh('trousers');
+  const LR = [[0.012, .126, .120, .108, 0], [0.14, .121, .113, .105, 0], [0.28, .115, .102, .104, 0], [0.42, .108, .094, .102, 0], [0.55, .102, .092, .104, 0], [0.70, .094, .090, .108, 0], [0.84, .086, .086, .112, 0]];
+  const legRings = [];
+  const ys = [0.84]; for (let y = 0.8095; y > 0.0121; y -= 0.0295) ys.push(y); ys.push(0.012);
+  for (const y of ys) {
+    const [cx, rx, rz, cz] = table(LR, y);
+    legRings.push(ringXZ(y, cx, cz, rx, rz, 2.15, 56, (a, yy) => {
+      const crease = 0.0020 * gauss(Math.sin(a), 0.09) * Math.abs(Math.cos(a));
+      const hemNoise = 0.0018 * vnoise(a * 2.2, yy * 5) * smooth(0.3, 0.0, yy);
+      const knee = 0.0012 * vnoise(a * 3 + 9, yy * 14);
+      return crease + hemNoise + knee;
+    }));
+  }
+  loft(leg, legRings);
+  doubleShell(leg, legRings.slice(-5), 0.0045);
+  const hemO = legRings[legRings.length - 1];
+  annulus(leg, hemO, shrinkRing(hemO, 0.0045), [0, -1, 0]);
+  m.append(leg); m.append(leg.mirrored());
+}
+
+/* ---------------- feet & sandals ---------------- */
+function buildFootSide(get) {
+  const sk = get('skin'), shoe = get('shoe'), sole = get('shoeSole'), nail = get('nail');
+  const WID = [[-0.095, 0.0], [-0.088, 0.026], [-0.05, 0.0305], [0.0, 0.033], [0.04, 0.0385], [0.08, 0.0440], [0.12, 0.0405], [0.146, 0.0285], [0.153, 0.012], [0.1555, 0.0]];
+  const outline = [];
+  const zs = []; for (let k = 0; k <= 48; k++) zs.push(-0.095 + (0.1555 + 0.095) * (0.5 - 0.5 * Math.cos(PI * k / 48)));
+  const hw = z => Math.max(0.0005, table(WID, z)[0]);
+  // custom rounded ends via explicit samples
+  const left = zs.map(z => [-hw(z) * 1.0, z]), right = zs.map(z => [hw(z) * 1.0, z]).reverse();
+  const ol = left.concat(right).filter((p, i, a) => i === 0 || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 1e-4);
+  const topFn = (x, z) => table([[-0.095, 0.0345], [-0.04, 0.0315], [0.02, 0.0255], [0.08, 0.0185], [0.156, 0.0145]], z)[0];
+  const solMesh = new Mesh('shoeSole'); slab(solMesh, ol, 0, () => 0.0085, 0.0024); sole.append(solMesh);
+  const insol = new Mesh('shoe'); const ol2 = ol.map(p => [p[0] * 0.985, p[1] * 0.99 - (p[1] > 0.0 ? 0.0008 : -0.0008) * 0]);
+  slab(insol, ol2, 0.0072, topFn, 0.0020); shoe.append(insol);
+  // foot skin (instep to toe base)
+  const HT = [[-0.045, 0.100], [-0.01, 0.088], [0.03, 0.066], [0.07, 0.045], [0.102, 0.034]];
+  const WS = [[-0.045, 0.0285], [0.0, 0.0305], [0.04, 0.0360], [0.08, 0.0415], [0.104, 0.0400]];
+  const fr = [];
+  for (let z = -0.045; z <= 0.1041; z += 0.0075) {
+    const yb = topFn(0, z) - 0.002, ht = table(HT, z)[0], w = table(WS, z)[0];
+    const ring = []; for (let j = 0; j < 20; j++) { const a = j / 20 * TAU; ring.push([w * Math.sin(a), (yb + ht) / 2 + (ht - yb) / 2 * Math.cos(a), z]); }
+    fr.push(ring);
+  }
+  loft(sk, fr); fan(sk, fr[fr.length - 1], [0, 0, 1]);
+  // toes
+  const T = [[-0.0285, .1495, .0108], [-0.0145, .1500, .0080], [0.0005, .1440, .0074], [0.0140, .1375, .0070], [0.0250, .1280, .0064]];
+  T.forEach(([tx, tz, r], idx) => {
+    const y0 = topFn(0, 0.1) + r * 0.92 + 0.0006;
+    const pts = [[tx * 0.96, y0 + 0.004, 0.092], [tx, y0 + 0.001, 0.112], [tx * 1.03, y0, (0.112 + tz) / 2], [tx * 1.04, y0 - r * 0.15, tz]];
+    const dens = spline(pts, 12);
+    tube(sk, dens, t => { const rr = r * roundCap(t, 0.82); return [rr * 0.88, rr]; }, { sides: 10, ref: [0, 1, 0], capEnd: true });
+    ellipsoid(nail, [tx * 1.04, y0 + r * 0.55, tz - r * 0.9], [r * 0.68, 0.0013, r * 0.85], { nu: 10, nv: 6 });
+  });
+  // vamp strap
+  thickPatch(shoe, shoe, shoe, (s, w) => {
+    const z = lerp(0.038, 0.078, s), yb = topFn(0, z), ht = table(HT, z)[0] + 0.0045, rx = table(WS, z)[0] + 0.0045;
+    const a = w * PI; return [rx * Math.cos(a), yb + (ht - yb) * Math.sin(a), z];
+  }, 8, 24, 0.0036, { hint: p => [p[0], 0.5, 0], tile: 0.05 });
+}
+
+function buildFeet() {
+  const reg = {}; const get = id => reg[id] || (reg[id] = new Mesh(id));
+  buildFootSide(get);
+  const toe = 0.10;
+  for (const id in reg) {
+    const left = reg[id];
+    left.transform(p => { const x = p[0] * Math.cos(toe) + p[2] * Math.sin(toe), z = -p[0] * Math.sin(toe) + p[2] * Math.cos(toe); return [x + 0.121, p[1], z + 0.004]; });
+    M(id).append(left); M(id).append(left.mirrored());
+  }
+}
+
+/* ---------------- earrings ---------------- */
+function buildEarring(side, base, outDir, Zdir) {
+  const metal = M('metal'), gem = M('gem');
+  const ring = []; for (let k = 0; k < 24; k++) { const a = k / 24 * TAU; ring.push(add(base, add(mul(Zdir, Math.cos(a) * 0.0044), mul(cross(outDir, Zdir), Math.sin(a) * 0.0044)))); }
+  loopTube(metal, ring, 0.0009, { sides: 6 });
+  ellipsoid(gem, add(base, mul(outDir, 0.0006)), [0.0036, 0.0030, 0.0036], { nu: 8, nv: 5, bx: cross(outDir, Zdir), by: outDir, bz: Zdir });
+  const pl = []; for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; pl.push(add(base, add(mul(Zdir, Math.cos(a) * 0.0048), mul(cross(outDir, Zdir), Math.sin(a) * 0.0048)))); }
+  ellipsoid(metal, sub(base, mul(outDir, 0.0006)), [0.0050, 0.0014, 0.0050], { nu: 16, nv: 5, bx: cross(outDir, Zdir), by: outDir, bz: Zdir });
+}
+
+/* ===== Head, face, ears, hair (built in head-local coords, then moved to HC) ===== */
+const HA = 0.0775, HB = 0.114, HZ = 0.094;
+function headG(x, y, z) {
+  const ny = y / HB, low = Math.max(0, -ny);
+  const ax = HA * (1 - 0.19 * Math.pow(low, 1.6));
+  let cz = HZ; if (z < 0) cz = HZ * (1 - 0.16 * Math.pow(low, 1.2));
+  const qy = y > 0 ? 2.0 : 2.45, qz = z > 0 ? 2.55 : 2.0;
+  return Math.pow(Math.abs(x) / ax, 2) + Math.pow(Math.abs(ny), qy) + Math.pow(Math.abs(z) / cz, qz);
+}
+function headRadius(d) {
+  let lo = 0, hi = 0.2;
+  for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2; if (headG(d[0] * mid, d[1] * mid, d[2] * mid) < 1) lo = mid; else hi = mid; }
+  return lo;
+}
+/* displacement bumps: [cx,cy,cz, sx,sy,sz, amp, dx,dy,dz] (x mirrored automatically when mirror=true) */
+const BUMPS = [
+  [0.035, 0.031, 0.086, 0.022, 0.008, 0.016, 0.0040, 0, 0, 1, true],     // brow ridge
+  [0.031, 0.004, 0.090, 0.015, 0.011, 0.012, -0.0050, 0, 0, 1, true],     // eye socket
+  [0.0, -0.004, 0.092, 0.0055, 0.010, 0.012, 0.0070, 0, 0, 1, false],     // nose bridge
+  [0.0, -0.022, 0.0925, 0.0066, 0.010, 0.012, 0.0120, 0, 0, 1, false],
+  [0.0, -0.035, 0.092, 0.0065, 0.008, 0.012, 0.0105, 0, -0.05, 1, false],
+  [0.0, -0.0465, 0.094, 0.0105, 0.0085, 0.012, 0.0150, 0, -0.18, 1, false], // tip
+  [0.0148, -0.050, 0.084, 0.0068, 0.0075, 0.010, 0.0105, 0.5, 0, 1, true],  // alae
+  [0.052, -0.020, 0.062, 0.024, 0.024, 0.030, 0.0100, 0.4, 0, 1, true],     // cheekbone
+  [0.042, -0.046, 0.066, 0.021, 0.019, 0.022, 0.0085, 0.1, 0.1, 1, true],   // smile cheek
+  [0.0, -0.062, 0.083, 0.012, 0.008, 0.010, 0.0030, 0, 0, 1, false],       // philtrum / upper lip
+  [0.0, -0.074, 0.074, 0.019, 0.015, 0.012, 0.0060, 0, 0, 1, false],       // mouth mass
+  [0.0, -0.092, 0.062, 0.013, 0.006, 0.012, -0.0030, 0, 0, 1, false],      // mentolabial sulcus
+  [0.0, -0.100, 0.062, 0.020, 0.013, 0.018, 0.0210, 0, -0.1, 1, false],    // chin
+  [0.057, -0.076, -0.004, 0.016, 0.022, 0.030, 0.0040, 1, 0, 0, true],     // jaw angle
+  [0.027, -0.071, 0.070, 0.010, 0.016, 0.010, -0.0016, 0, 0, 1, true]      // nasolabial hint
+];
+function headPoint(d, withBumps) {
+  const R = headRadius(d); const p = [d[0] * R, d[1] * R, d[2] * R];
+  if (!withBumps) return p;
+  let q = p.slice();
+  for (const b of BUMPS) {
+    const sides = b[10] ? [1, -1] : [1];
+    for (const sg of sides) {
+      const cx = b[0] * sg, dx = b[7] * sg;
+      const ex = (p[0] - cx) / b[3], ey = (p[1] - b[1]) / b[4], ez = (p[2] - b[2]) / b[5];
+      const g = Math.exp(-0.5 * (ex * ex + ey * ey + ez * ez)) * b[6];
+      if (g > 1e-7) { const dd = norm([dx, b[8], b[9]]); q[0] += dd[0] * g; q[1] += dd[1] * g; q[2] += dd[2] * g; }
+    }
+  }
+  return q;
+}
+let HEAD = null;
+function buildHeadMesh() {
+  const m = new Mesh('skin');
+  const nT = 120, nP = 180, rings = [];
+  for (let i = 0; i <= nT; i++) {
+    const th = Math.min(PI - 1e-4, Math.max(1e-4, i / nT * PI)), ring = [];
+    for (let j = 0; j < nP; j++) { const ph = j / nP * TAU; const d = [Math.sin(th) * Math.sin(ph), Math.cos(th), Math.sin(th) * Math.cos(ph)]; ring.push(headPoint(d, true)); }
+    rings.push(ring);
+  }
+  loft(m, rings, {
+    colFn: (p) => {
+      let r = 1, g = 1, b = 1;
+      const sock = Math.exp(-(Math.pow((Math.abs(p[0]) - 0.031) / 0.017, 2) + Math.pow((p[1] - 0.003) / 0.013, 2))) * (p[2] > 0 ? 1 : 0);
+      r -= 0.05 * sock; g -= 0.09 * sock; b -= 0.08 * sock;
+      const chk = Math.exp(-(Math.pow((Math.abs(p[0]) - 0.043) / 0.018, 2) + Math.pow((p[1] + 0.034) / 0.02, 2))) * (p[2] > 0 ? 1 : 0);
+      r += 0.025 * chk; g -= 0.03 * chk; b -= 0.03 * chk;
+      const nose = Math.exp(-(Math.pow(p[0] / 0.012, 2) + Math.pow((p[1] + 0.05) / 0.012, 2))) * (p[2] > 0 ? 1 : 0);
+      r += 0.02 * nose; g -= 0.035 * nose; b -= 0.03 * nose;
+      return [r, g, b];
+    }
+  });
+  const nor = computeNormals(m);
+  // ray structure (front half only)
+  const tris = [];
+  for (let t = 0; t < m.idx.length; t += 3) {
+    const a = m.idx[t], b = m.idx[t + 1], c = m.idx[t + 2];
+    const pa = m.P(a), pb = m.P(b), pc = m.P(c);
+    if (pa[2] < -0.02 && pb[2] < -0.02 && pc[2] < -0.02) continue;
+    tris.push({ a, b, c, pa, pb, pc, minx: Math.min(pa[0], pb[0], pc[0]), maxx: Math.max(pa[0], pb[0], pc[0]), miny: Math.min(pa[1], pb[1], pc[1]), maxy: Math.max(pa[1], pb[1], pc[1]) });
+  }
+  HEAD = { m, nor, tris };
+  return m;
+}
+/* ray down -z at (x,y) → highest-z hit */
+function headRay(x, y) {
+  let best = null, bz = -1e9;
+  for (const t of HEAD.tris) {
+    if (x < t.minx || x > t.maxx || y < t.miny || y > t.maxy) continue;
+    const pa = t.pa, pb = t.pb, pc = t.pc;
+    // barycentric in xy
+    const d = (pb[1] - pc[1]) * (pa[0] - pc[0]) + (pc[0] - pb[0]) * (pa[1] - pc[1]); if (Math.abs(d) < 1e-14) continue;
+    const l1 = ((pb[1] - pc[1]) * (x - pc[0]) + (pc[0] - pb[0]) * (y - pc[1])) / d;
+    const l2 = ((pc[1] - pa[1]) * (x - pc[0]) + (pa[0] - pc[0]) * (y - pc[1])) / d;
+    const l3 = 1 - l1 - l2;
+    if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
+    const z = l1 * pa[2] + l2 * pb[2] + l3 * pc[2];
+    if (z > bz) {
+      bz = z; const N = HEAD.nor;
+      const n = norm([l1 * N[t.a * 3] + l2 * N[t.b * 3] + l3 * N[t.c * 3], l1 * N[t.a * 3 + 1] + l2 * N[t.b * 3 + 1] + l3 * N[t.c * 3 + 1], l1 * N[t.a * 3 + 2] + l2 * N[t.b * 3 + 2] + l3 * N[t.c * 3 + 2]]);
+      best = { p: [x, y, z], n };
+    }
+  }
+  return best || { p: [x, y, 0.09], n: [0, 0, 1] };
+}
+const onFace = (x, y, off) => { const h = headRay(x, y); return { p: add(h.p, mul(h.n, off)), n: h.n }; };
+
+/* ---------- eyes ---------- */
+const EYE_R = 0.0118;
+function buildEye(F, sg) {
+  const sk = F('skin'), scl = F('sclera'), iris = F('iris'), cor = F('cornea'), lash = F('lash'), crease = F('skinDark');
+  const surf = headRay(sg * 0.0315, 0.004);
+  const c = [sg * 0.0315, 0.004, surf.p[2] - 0.0042];
+  const te = sg * 0.085;
+  const bx = [Math.cos(te), Math.sin(te), 0], by = [-Math.sin(te), Math.cos(te), 0], bz = [0, 0, 1];
+  const R = EYE_R;
+  ellipsoid(scl, c, [R, R, R], { bx, by, bz, nu: 36, nv: 26 });
+  // iris disc (planar UV)
+  const ri = 0.0058, ctr = iris.addV(add(c, mul(bz, R * 1.0012)), [0.5, 0.5]);
+  const nRing = 8, nSeg = 36, base = iris.count, itri0 = iris.idx.length;
+  for (let k = 1; k <= nRing; k++) { const rho = ri * k / nRing; for (let j = 0; j < nSeg; j++) { const a = j / nSeg * TAU; const lx = rho * Math.cos(a), ly = rho * Math.sin(a), lz = Math.sqrt(R * R - rho * rho) * 1.0012; iris.addV(add(c, add(add(mul(bx, lx), mul(by, ly)), mul(bz, lz))), [0.5 + lx / (2 * ri), 0.5 + ly / (2 * ri)]); } }
+  const ringI = k => base + (k - 1) * nSeg;
+  for (let j = 0; j < nSeg; j++) iris.tri(ctr, ringI(1) + j, ringI(1) + (j + 1) % nSeg);
+  for (let k = 1; k < nRing; k++) for (let j = 0; j < nSeg; j++) { const a = ringI(k) + j, b = ringI(k) + (j + 1) % nSeg, cc = ringI(k + 1) + j, d = ringI(k + 1) + (j + 1) % nSeg; iris.tri(a, cc, b); iris.tri(b, cc, d); }
+  { const pa = iris.P(iris.idx[itri0]), pb = iris.P(iris.idx[itri0 + 1]), pc = iris.P(iris.idx[itri0 + 2]);
+    if (dot(cross(sub(pb, pa), sub(pc, pa)), bz) < 0) for (let u = itri0; u < iris.idx.length; u += 3) { const x = iris.idx[u + 1]; iris.idx[u + 1] = iris.idx[u + 2]; iris.idx[u + 2] = x; } }
+  // cornea cap (pole along bz)
+  ellipsoid(cor, c, [R * 1.025, R * 1.025, R * 1.025], { bx, by: bz, bz: mul(by, -1), nu: 28, nv: 8, t0: 0, t1: 0.72 });
+  // lids
+  const RL = R * 1.09;
+  const thu = psi => PI / 2 - 0.40 * Math.pow(Math.sin(psi), 0.72);
+  const thl = psi => PI / 2 + 0.47 * Math.pow(Math.sin(psi), 0.78);
+  const lidPt = (psi, th, r) => add(c, add(add(mul(bx, r * Math.sin(th) * Math.cos(psi)), mul(by, r * Math.cos(th))), mul(bz, r * Math.sin(th) * Math.sin(psi))));
+  const lm = new Mesh('skin');
+  const nPsi = 30, nTh = 10;
+  const upper = [], lower = [];
+  for (let j = 0; j <= nTh; j++) {
+    const ru = [], rl = [];
+    for (let i = 0; i <= nPsi; i++) {
+      const psi = 0.02 + (PI - 0.04) * i / nPsi; const tu = thu(psi) * (j / nTh), tl = thl(psi) + (PI - thl(psi)) * (j / nTh);
+      ru.push(lidPt(psi, tu, RL)); rl.push(lidPt(psi, tl, RL));
+    }
+    upper.push(ru); lower.push(rl);
+  }
+  loft(lm, upper, { closed: false }); loft(lm, lower, { closed: false });
+  sk.append(lm);
+  // lash line (upper lid margin) + lower waterline
+  const edgeU = [], edgeL = [];
+  for (let i = 0; i <= 30; i++) { const psi = 0.04 + (PI - 0.08) * i / 30; edgeU.push(lidPt(psi, thu(psi) + 0.012, RL * 1.002)); edgeL.push(lidPt(psi, thl(psi) - 0.012, RL * 1.0)); }
+  // medial = psi~0 is toward +x*? psi=0 -> +bx (lateral for sg>0). lateral thickening where psi small if sg>0
+  const latFrac = (i) => sg > 0 ? 1 - i / 30 : i / 30;
+  tube(lash, edgeU, (t, i) => 0.00085 + 0.0007 * smooth(0.45, 1, latFrac(i)) , { sides: 6, ref: bz, capStart: true, capEnd: true });
+  tube(crease, edgeL, 0.00055, { sides: 5, ref: bz, capStart: true, capEnd: true });
+  const crs = []; for (let i = 3; i <= 27; i++) { const psi = 0.04 + (PI - 0.08) * i / 30; crs.push(lidPt(psi, thu(psi) - 0.30 * Math.pow(Math.sin(psi), 0.9), RL * 1.0015)); }
+  tube(crease, crs, 0.0005, { sides: 5, ref: bz, capStart: true, capEnd: true });
+}
+
+/* ---------- brows ---------- */
+function buildBrow(F, sg) {
+  const m = F('brow');
+  const ctrl = [[0.0105, 0.0292, 0.0086], [0.0210, 0.0328, 0.0098], [0.0320, 0.0358, 0.0102], [0.0440, 0.0340, 0.0088], [0.0550, 0.0290, 0.0064], [0.0625, 0.0248, 0.0036]];
+  const pts = spline(ctrl.map(c => [c[0], c[1], c[2]]), 28);
+  const P = (s, w) => {
+    const i = Math.min(pts.length - 1, Math.round(s * (pts.length - 1)));
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(pts.length - 1, i + 1)], p = pts[i];
+    let tx = p1[0] - p0[0], ty = p1[1] - p0[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    const nx = -ty, ny = tx, h = p[2];
+    const off = (w - 0.4) * h;
+    const x = p[0] + nx * off, y = p[1] + ny * off;
+    const f = onFace(sg * x, y, 0.0016 + 0.0006 * Math.sin(PI * w));
+    return f.p;
+  };
+  thickPatch(m, m, m, P, 28, 5, 0.0010, { hint: [0, 0, 1], uvFn: (s, w) => [s, w], noEdges: true });
+}
+
+/* ---------- nose details, mouth, ears ---------- */
+function buildNostrils(F) {
+  const m = F('nostril');
+  for (const sg of [1, -1]) { const f = onFace(sg * 0.0078, -0.0538, -0.0004); ellipsoid(m, f.p, [0.0042, 0.0020, 0.0036], { nu: 14, nv: 8 }); }
+}
+function buildMouth(F) {
+  const lips = F('lips'), teeth = F('teeth'), cav = F('mouth');
+  const hw = 0.0268, yc = -0.0658;
+  const yu = x => yc + (-0.0718 - yc) * (1 - Math.pow(Math.abs(x) / hw, 2.2));
+  const yl = x => yc + (-0.0788 - yc) * (1 - Math.pow(Math.abs(x) / hw, 1.7));
+  const ru = x => 0.0041 * Math.sqrt(Math.max(0, 1 - Math.pow(x / hw, 2))) + 0.0005;
+  const rl = x => 0.0052 * Math.sqrt(Math.max(0, 1 - Math.pow(x / hw, 2))) + 0.0005;
+  const N = 36, cs = [], rr = [];
+  for (let i = 0; i <= N; i++) { const x = -hw + 2 * hw * i / N; const y = yu(x) + ru(x) * 0.85 + 0.0005 * Math.exp(-Math.pow((Math.abs(x) - 0.004) / 0.0035, 2)) ; cs.push(onFace(x, y, 0.0012).p); rr.push(ru(x)); }
+  for (let i = N - 1; i >= 1; i--) { const x = -hw + 2 * hw * i / N; const y = yl(x) - rl(x) * 0.85; cs.push(onFace(x, y, 0.0014).p); rr.push(rl(x)); }
+  const n = cs.length;
+  loopTube(lips, cs, t => { const i = Math.min(n - 1, Math.round(t * n)); return [rr[i] * 1.0, rr[i] * 0.85]; }, { sides: 10 });
+  // dark cavity
+  const outline = []; for (let i = 0; i <= N; i += 2) { const x = -hw * 0.97 + 2 * hw * 0.97 * i / N; outline.push(onFace(x, yu(x) - 0.0004, 0.0004).p); }
+  const low = []; for (let i = N; i >= 0; i -= 2) { const x = -hw * 0.97 + 2 * hw * 0.97 * i / N; low.push(onFace(x, yl(x) + 0.0004, 0.0004).p); }
+  const poly = outline.concat(low); fan(cav, poly, [0, 0, 1]);
+  // upper teeth
+  const TW = [[0.0041, 0.0086], [0.0104, 0.0068], [0.0156, 0.0058]];
+  for (const [tx, tw] of TW) for (const sg of [1, -1]) {
+    const x = tx * sg, y = yu(x) - 0.0028;
+    const f = onFace(x, y, 0.0006);
+    ellipsoid(teeth, f.p, [tw / 2 * 1.04, 0.0030, 0.0017], { nu: 12, nv: 8 });
+  }
+}
+function buildEar(F, sg) {
+  const sk = F('skin');
+  const flare = 0.34;
+  const Zd = norm([sg * Math.sin(flare), 0, -Math.cos(flare)]), Xo = norm([sg * Math.cos(flare), 0, Math.sin(flare)]), Yd = [0, 1, 0];
+  const O = [sg * 0.0728, -0.006, 0.0035];
+  const H = 0.0315, W = 0.0172, cw = 0.0178, tilt = 0.20;
+  const P = (s, w) => {
+    const rho = s, th = w * TAU;
+    let cy = Math.cos(th), sz = Math.sin(th);
+    const lobe = cy < 0 ? 1 - 0.20 * (-cy) : 1;
+    let ey = rho * H * cy * (cy < -0.2 ? 0.96 : 1), ez = rho * W * sz * lobe;
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    const ey2 = ey * ct - ez * st, ez2 = ey * st + ez * ct;      // tilt top backwards
+    const ry = ey2, rz = ez2 + cw;
+    const rim = Math.exp(-Math.pow((rho - 0.82) / 0.14, 2));
+    const ridge = Math.exp(-Math.pow((rho - 0.50) / 0.10, 2)) * (cy > -0.3 ? 1 : 0.3) * (sz < 0.2 ? 1 : 0.5);
+    const bowl = Math.exp(-Math.pow(rho / 0.27, 2));
+    const lobeFlat = cy < -0.5 ? smooth(-0.5, -0.9, cy) : 0;
+    const dep = -0.0030 + 0.0030 + 0.0060 * rim * (1 - 0.7 * lobeFlat) + 0.0026 * ridge - 0.0034 * bowl * (1 - lobeFlat) + 0.0022 * (1 - rho * rho) * 0.0;
+    const dflare = 0.0;
+    return add(O, add(add(mul(Yd, ry), mul(Zd, rz)), mul(Xo, dep - 0.0006)));
+  };
+  thickPatch(sk, sk, sk, P, 10, 56, 0.0024, { hint: Xo, edges: [false, true, false, false] });
+  return { O, Zd, Xo, lobe: add(O, add(add(mul(Yd, -0.0275), mul(Zd, 0.0162)), mul(Xo, 0.0012))) };
+}
+
+function buildFace() {
+  const reg = {}; const F = id => reg[id] || (reg[id] = new Mesh(id));
+  const head = buildHeadMesh();
+  F('skin').append(head);
+  buildEye(F, 1); buildEye(F, -1);
+  buildBrow(F, 1); buildBrow(F, -1);
+  buildNostrils(F); buildMouth(F);
+  const earInfo = [buildEar(F, 1), buildEar(F, -1)];
+  for (const id in reg) {
+    const m = reg[id]; m.transform(p => add(p, HC)); M(id).append(m);
+  }
+  // earrings in world space
+  [1, -1].forEach((sg, k) => { const e = earInfo[k]; buildEarring(sg, add(e.lobe, HC), e.Xo, e.Zd); });
+}
+
+/* ===== Hair: scalp cap + layered swept locks (head-local, moved to HC) ===== */
+const HAIRLINE = [[0, 58], [20, 60], [45, 69], [65, 78], [78, 90], [86, 92], [89, 76], [105, 74], [112, 82], [120, 98], [135, 116], [155, 126], [180, 129]];
+const hairline = az => table(HAIRLINE, Math.abs(az) * 180 / PI)[0] * PI / 180;
+const dirOf = (az, pol) => [Math.sin(pol) * Math.sin(az), Math.cos(pol), Math.sin(pol) * Math.cos(az)];
+const hairPt = (d, off) => { const R = headRadius(d); return [d[0] * (R + off), d[1] * (R + off), d[2] * (R + off)]; };
+
+function buildHair() {
+  const rnd = rng(11);
+  const cap = new Mesh('hairCap'), locks = new Mesh('hair');
+  const rings = [], M_ = 40, N_ = 168;
+  for (let i = 0; i <= M_; i++) {
+    const t = i / M_, ring = [];
+    for (let j = 0; j < N_; j++) {
+      const az = -PI + j / N_ * TAU, pol = Math.max(1e-3, t * (hairline(az) - 0.012));
+      ring.push(hairPt(dirOf(az, pol), 0.0012 + 0.0022 * smooth(1.3, 0.0, pol)));
+    }
+    rings.push(ring);
+  }
+  loft(cap, rings, { tile: 0.05 });
+  const R = rnd, jit = (v, a) => v + (R() - 0.5) * a;
+  function lock(d0, flow, arc, vol, width, thick, tipLift, wig, shade) {
+    let f = sub(flow, mul(d0, dot(flow, d0))); f = norm(f);
+    const side = norm(cross(d0, f)), nSeg = 12;
+    const build = (A) => {
+      const pts = [];
+      for (let k = 0; k <= nSeg; k++) {
+        const t = k / nSeg, ang = A / 0.1 * t;
+        let d = add(mul(d0, Math.cos(ang)), mul(f, Math.sin(ang)));
+        d = norm(add(d, mul(side, wig * Math.sin(t * 3.0 + shade * 7) * 0.25 * t)));
+        pts.push({ d, off: 0.0026 + vol * Math.pow(Math.sin(PI * Math.pow(t, 0.8)), 0.9) + tipLift * t * t * t });
+      }
+      return pts;
+    };
+    let A = arc, P = build(A);
+    for (let it = 0; it < 12; it++) {                                  // keep tips above the hairline
+      const e = P[nSeg].d, pol = Math.acos(clamp(e[1], -1, 1)), az = Math.atan2(e[0], e[2]);
+      if (pol > hairline(az) - 0.05 && A > 0.012) { A *= 0.88; P = build(A); } else break;
+    }
+    const pts = P.map(q => hairPt(q.d, q.off)), ringsL = [];
+    for (let k = 0; k <= nSeg; k++) {
+      const t = k / nSeg, p = pts[k];
+      const T = norm(sub(pts[Math.min(nSeg, k + 1)], pts[Math.max(0, k - 1)]));
+      const W = norm(cross(T, norm(p))), Nn = norm(cross(W, T));
+      const hw = width * 0.5 * (0.55 + 0.45 * smooth(0, 0.25, t)) * (1 - 0.78 * Math.pow(t, 3.0)) + 0.0004;
+      const ht = thick * 0.5 * (1 - 0.85 * Math.pow(t, 2.2)) + 0.00015;
+      const ring = [];
+      for (let s = 0; s < 6; s++) { const a = s / 6 * TAU; ring.push(add(p, add(mul(W, hw * Math.cos(a)), mul(Nn, ht * Math.sin(a))))); }
+      ringsL.push(ring);
+    }
+    loft(locks, ringsL, { tile: 0.05, colFn: (p, i) => { const t = i / nSeg; const g = shade * (0.82 + 0.3 * t); return [g, g, g * 1.02]; } });
+  }
+  // 1. top volume, swept toward her left (+x)
+  for (let i = 0; i < 240; i++) {
+    const pol = Math.acos(1 - R() * (1 - Math.cos(1.0))), az = R() * TAU - PI;
+    if (pol > hairline(az) - 0.07) continue;
+    const k = 1 - pol / 1.2;
+    lock(dirOf(az, pol), [jit(1.0, 0.16), jit(0.05, 0.12), jit(0.30, 0.25)], 0.056 + 0.026 * R(), (0.009 + 0.010 * R()) * (0.45 + k), 0.017 + 0.008 * R(), 0.0038, 0.002 + 0.003 * R(), 0.12, 0.84 + 0.3 * R());
+  }
+  // 2. fringe along the front hairline, lifted and swept
+  for (let i = 0; i < 90; i++) {
+    const az = -0.85 + R() * 1.8, pol = hairline(az) - 0.05 - R() * 0.12;
+    lock(dirOf(az, pol), [jit(0.85, 0.2), jit(0.55, 0.15), jit(-0.15, 0.2)], 0.042 + 0.022 * R(), 0.010 + 0.008 * R(), 0.014 + 0.005 * R(), 0.0034, 0.005 + 0.004 * R(), 0.12, 0.85 + 0.3 * R());
+  }
+  // 3. sides, short and close
+  for (let i = 0; i < 150; i++) {
+    const sg = i % 2 ? 1 : -1, az = sg * (0.50 + R() * 1.30), pol = hairline(az) - 0.28 - R() * 0.60;
+    if (pol < 0.25) continue;
+    lock(dirOf(az, pol), [jit(0, 0.2), -0.8, -0.5 + jit(0, 0.3)], 0.026 + 0.016 * R(), 0.003, 0.011 + 0.004 * R(), 0.0032, 0.0, 0.1, 0.72 + 0.3 * R());
+  }
+  // 4. back
+  for (let i = 0; i < 240; i++) {
+    const az2 = (R() < 0.5 ? 1 : -1) * (PI - 0.9 + R() * 0.9), pol = Math.min(hairline(az2) - 0.25, 0.85 + R() * 1.1);
+    if (pol < 0.8) continue;
+    lock(dirOf(az2, pol), [jit(0.55, 0.4), -0.8, jit(-0.1, 0.2)], 0.036 + 0.024 * R(), 0.005, 0.010 + 0.004 * R(), 0.0030, 0.001, 0.2, 0.68 + 0.45 * R());
+  }
+  // 5. nape
+  for (let i = 0; i < 90; i++) {
+    const az = (R() < 0.5 ? 1 : -1) * (PI - R() * 0.8), pol = hairline(az) - 0.12 - R() * 0.3;
+    lock(dirOf(az, pol), [jit(0.15, 0.2), -1, 0], 0.020 + 0.010 * R(), 0.002, 0.008, 0.003, 0.0, 0.1, 0.65 + 0.4 * R());
+  }
+  // 6. crown / back-top swept
+  for (let i = 0; i < 160; i++) {
+    const az = (R() < 0.5 ? 1 : -1) * (PI - 0.2 - R() * 1.5), pol = 0.3 + R() * 0.65;
+    lock(dirOf(az, pol), [jit(0.9, 0.4), jit(-0.25, 0.3), jit(-0.3, 0.3)], 0.050 + 0.025 * R(), 0.008 + 0.008 * R(), 0.011 + 0.005 * R(), 0.0032, 0.003, 0.2, 0.72 + 0.5 * R());
+  }
+  cap.transform(p => add(p, HC)); locks.transform(p => add(p, HC));
+  M('hairCap').append(cap); M('hair').append(locks);
+}
+
+function buildModel() {
+  for (const k in registry) delete registry[k];
+  buildTop(); buildNeck(); buildJacket();
+  buildArmSide(M);
+  const tmp = {}; buildArmSide(id => tmp[id] || (tmp[id] = new Mesh(id)));
+  for (const id in tmp) M(id).append(tmp[id].mirrored());
+  buildWatch(); buildTrousers(); buildFeet(); buildFace(); buildHair();
+  const parts = [];
+  for (const id in registry) {
+    const m = registry[id]; if (!m.idx.length) continue;
+    parts.push({ id, mat: m.mat, pos: new Float32Array(m.pos), nor: computeNormals(m), uv: new Float32Array(m.uv), col: m.col ? new Float32Array(m.col) : null, idx: new Uint32Array(m.idx) });
+  }
+  return parts;
+}
+
+  return buildModel;
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  /* ---------- reference defaults ---------- */
+  const DEFAULTS = {
+    colors: { blazer: '#46302c', top: '#3a2826', trousers: '#3f2a2b', shoe: '#cdb096' },
+    light: 'soft', dir: 35, intensity: 1.0, exposure: 0.95, rough: 0.82, wire: false, floor: true
+  };
+  const state = JSON.parse(JSON.stringify(DEFAULTS));
+  const SKIN = '#c08c6a';
+
+  const PRESETS = {
+    soft: { bg: '#d8dade', key: 0xffffff, keyI: 0.80, fill: 0xffffff, fillI: 0.22, rim: 0xffffff, rimI: 0.30, hemiSky: 0xffffff, hemiGround: 0xb9b4b0, hemiI: 0.22, env: { wall: 0.50, floor: 0.28, key: [1, 1, 1], fill: [1, 1, 1], top: [1, 1, 1] }, envI: 0.60 },
+    warm: { bg: '#ddd7d0', key: 0xffdcb4, keyI: 0.84, fill: 0xffe6d0, fillI: 0.20, rim: 0xffd2a4, rimI: 0.32, hemiSky: 0xfff0e0, hemiGround: 0xbfa992, hemiI: 0.22, env: { wall: 0.50, floor: 0.28, key: [1, 0.80, 0.58], fill: [1, 0.86, 0.72], top: [1, 0.92, 0.82] }, envI: 0.60 },
+    cool: { bg: '#d3d9e2', key: 0xd3e2ff, keyI: 0.78, fill: 0xdce8ff, fillI: 0.26, rim: 0xb8d0ff, rimI: 0.36, hemiSky: 0xe6efff, hemiGround: 0xa5aebb, hemiI: 0.22, env: { wall: 0.50, floor: 0.28, key: [0.78, 0.88, 1], fill: [0.80, 0.90, 1], top: [0.88, 0.93, 1] }, envI: 0.60 }
+  };
+
+  /* ---------- helpers ---------- */
+  const $ = (id) => document.getElementById(id);
+  const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
+  const stageEl = $('stage');
+  let renderer, scene, camera, floorGroup, keyLight, fillLight, rimLight, hemi, pmrem, envTarget, charGroup;
+  const mats = {};
+  let dirty = true;
+  const requestRender = () => { dirty = true; };
+
+  /* ---------- procedural textures ---------- */
+  function canvasTex(size, draw, srgb, repeat) {
+    const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); draw(g, size);
+    const t = new THREE.CanvasTexture(c); if (srgb) t.encoding = THREE.sRGBEncoding;
+    if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+    t.anisotropy = 8; return t;
+  }
+  function rnd(seed) { let a = seed; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function herringbone() {
+    return canvasTex(512, (g, s) => {
+      const R = rnd(3); g.fillStyle = '#ebebeb'; g.fillRect(0, 0, s, s);
+      const bw = 10;
+      for (let bx = 0; bx < s; bx += bw) {
+        const dir = ((bx / bw) | 0) % 2 ? 1 : -1;
+        g.save(); g.beginPath(); g.rect(bx, 0, bw, s); g.clip();
+        for (let y = -bw; y < s + bw; y += 4) { g.strokeStyle = 'rgba(0,0,0,' + (0.04 + R() * 0.06) + ')'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, y); g.lineTo(bx + bw, y + dir * bw * 0.5); g.stroke(); }
+        g.restore();
+        g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(bx, 0, 1.5, s);
+      }
+      for (let i = 0; i < 9000; i++) { g.fillStyle = 'rgba(' + (R() < 0.5 ? '0,0,0' : '255,255,255') + ',' + (0.04 + R() * 0.07) + ')'; g.fillRect(R() * s, R() * s, 1 + R() * 1.5, 1 + R() * 1.5); }
+    }, true, true);
+  }
+  function crepe(seed) {
+    return canvasTex(512, (g, s) => {
+      const R = rnd(seed); g.fillStyle = '#ececec'; g.fillRect(0, 0, s, s);
+      for (let y = 0; y < s; y += 4) { g.strokeStyle = 'rgba(0,0,0,0.05)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y); g.lineTo(s, y + 4); g.stroke(); }
+      for (let i = 0; i < 38000; i++) { const v = R() < 0.5 ? 0 : 255; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + (0.05 + R() * 0.12) + ')'; g.fillRect(R() * s, R() * s, 1, 1 + (R() < 0.3 ? 1 : 0)); }
+      for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(' + (R() < 0.5 ? '80,50,48' : '230,210,200') + ',0.35)'; g.fillRect(R() * s, R() * s, 1.5, 1.5); }   // flecks
+    }, true, true);
+  }
+  function streaks() {
+    return canvasTex(256, (g, s) => {
+      const R = rnd(21); g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 700; i++) { const v = (R() < 0.5 ? 0 : 255); g.strokeStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + (0.12 + R() * 0.2) + ')'; g.lineWidth = 0.7 + R() * 1.2; const x = R() * s; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (R() - 0.5) * 6, s); g.stroke(); }
+    }, true, true);
+  }
+  function irisTex() {
+    return canvasTex(256, (g, s) => {
+      const c = s / 2, R = rnd(5);
+      const gr = g.createRadialGradient(c, c, 0, c, c, c);
+      gr.addColorStop(0, '#050403'); gr.addColorStop(0.27, '#050403'); gr.addColorStop(0.31, '#7a4a22'); gr.addColorStop(0.55, '#4f2d15'); gr.addColorStop(0.85, '#2c180b'); gr.addColorStop(0.95, '#160b05'); gr.addColorStop(1, '#0c0603');
+      g.fillStyle = gr; g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 220; i++) { const a = R() * Math.PI * 2, r0 = c * (0.3 + R() * 0.1), r1 = c * (0.62 + R() * 0.32); g.strokeStyle = R() < 0.5 ? 'rgba(18,8,3,0.30)' : 'rgba(170,110,55,0.22)'; g.lineWidth = 1; g.beginPath(); g.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0); g.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1); g.stroke(); }
+    }, true, false);
+  }
+  function browTex() {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d'); const R = rnd(9);
+    g.clearRect(0, 0, 512, 128);
+    // soft dense core so no skin shows through
+    const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(30,20,16,0)'); gr.addColorStop(0.2, 'rgba(30,20,16,0.55)'); gr.addColorStop(0.5, 'rgba(24,16,13,0.8)'); gr.addColorStop(0.8, 'rgba(30,20,16,0.55)'); gr.addColorStop(1, 'rgba(30,20,16,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 512, 128);
+    for (let i = 0; i < 1800; i++) {
+      const y0 = 64 + (R() + R() + R() - 1.5) * 52, x0 = R() * 512, L = 36 + R() * 70, a = -0.10 + (R() - 0.5) * 0.28;
+      const v = 14 + Math.floor(R() * 44); g.strokeStyle = 'rgba(' + v + ',' + Math.floor(v * 0.7) + ',' + Math.floor(v * 0.6) + ',' + (0.55 + R() * 0.4) + ')'; g.lineWidth = 1 + R() * 1.6;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + Math.cos(a) * L, y0 + Math.sin(a) * L); g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+  }
+  function dialTex() {
+    return canvasTex(256, (g, s) => {
+      g.fillStyle = '#f2f0eb'; g.fillRect(0, 0, s, s);
+      const gr = g.createLinearGradient(0, 0, s, s); gr.addColorStop(0, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(0,0,0,0.08)'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+      const c = s / 2, hs = s * 0.40;
+      g.strokeStyle = '#2b2b2e'; g.lineCap = 'round';
+      for (let h = 0; h < 12; h++) {
+        const a = h / 12 * Math.PI * 2 - Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a), k = hs / Math.max(Math.abs(dx), Math.abs(dy));
+        const x1 = c + dx * k, y1 = c + dy * k, k2 = k - (h % 3 === 0 ? 20 : 11);
+        g.lineWidth = h % 3 === 0 ? 7 : 4; g.beginPath(); g.moveTo(c + dx * k2, c + dy * k2); g.lineTo(x1, y1); g.stroke();
+      }
+      g.lineWidth = 7; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(-Math.PI / 2 - 1.05) * 50, c + Math.sin(-Math.PI / 2 - 1.05) * 50); g.stroke();
+      g.lineWidth = 5; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(-Math.PI / 2 + 1.05) * 78, c + Math.sin(-Math.PI / 2 + 1.05) * 78); g.stroke();
+      g.fillStyle = '#2b2b2e'; g.beginPath(); g.arc(c, c, 7, 0, Math.PI * 2); g.fill();
+    }, true, false);
+  }
+  function blobTex() {
+    return canvasTex(256, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, false, false);
+  }
+  function floorFadeTex() {
+    return canvasTex(256, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, '#fff'); gr.addColorStop(1, '#000'); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, false, false);
+  }
+
+  /* ---------- materials ---------- */
+  function makeMaterials() {
+    const fab = herringbone(), crep = crepe(11), crep2 = crepe(23), hairTex = streaks();
+    const P = (o) => new THREE.MeshPhysicalMaterial(o), S = (o) => new THREE.MeshStandardMaterial(o);
+    mats.skin = P({ color: lin(SKIN), roughness: 0.56, metalness: 0, clearcoat: 0.10, clearcoatRoughness: 0.6, vertexColors: true });
+    mats.skinDark = S({ color: lin('#8c5f47'), roughness: 0.6 });
+    mats.lips = P({ color: lin('#a35e57'), roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.35 });
+    mats.teeth = S({ color: lin('#efe8de'), roughness: 0.32 });
+    mats.mouth = S({ color: lin('#2b1010'), roughness: 0.9 });
+    mats.nostril = S({ color: lin('#3a1c17'), roughness: 0.9 });
+    mats.sclera = S({ color: lin('#f1ede9'), roughness: 0.22 });
+    mats.iris = S({ color: 0xffffff, map: irisTex(), roughness: 0.3 });
+    mats.cornea = P({ color: 0xffffff, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.14, depthWrite: false, envMapIntensity: 1.8 });
+    mats.lash = S({ color: lin('#120c0b'), roughness: 0.6 });
+    mats.brow = S({ color: 0xffffff, map: browTex(), alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.7 });
+    mats.nail = P({ color: lin('#e6c1b6'), roughness: 0.25, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    mats.hair = P({ color: lin('#171212'), roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.35, vertexColors: true });
+    mats.hairCap = S({ color: lin('#100c0c'), roughness: 0.5, map: hairTex, bumpMap: hairTex, bumpScale: 0.5 });
+    mats.blazer = S({ color: lin(state.colors.blazer), roughness: state.rough, map: fab, bumpMap: fab, bumpScale: 0.12 });
+    mats.blazerLining = S({ color: lin('#2b1d1c'), roughness: 0.45 });
+    mats.blazerSeam = S({ color: lin('#2a1c19'), roughness: 0.9 });
+    mats.top = S({ color: lin(state.colors.top), roughness: state.rough, map: crep, bumpMap: crep, bumpScale: 0.08 });
+    mats.trousers = S({ color: lin(state.colors.trousers), roughness: state.rough, map: crep2, bumpMap: crep2, bumpScale: 0.08 });
+    mats.trousersSeam = S({ color: lin('#2b1c1d'), roughness: 0.9 });
+    mats.button = P({ color: lin('#1e1411'), roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.25 });
+    mats.buttonHole = S({ color: 0x050303, roughness: 0.9 });
+    mats.shoe = S({ color: lin(state.colors.shoe), roughness: 0.55 });
+    mats.shoeSole = S({ color: lin('#b09a82'), roughness: 0.75 });
+    mats.metal = S({ color: lin('#c9ccd1'), metalness: 1, roughness: 0.3 });
+    mats.gem = P({ color: 0xffffff, roughness: 0.02, metalness: 0, clearcoat: 1, flatShading: true, envMapIntensity: 2.2 });
+    mats.dial = S({ color: 0xffffff, map: dialTex(), roughness: 0.4 });
+    mats.glass = P({ color: 0xffffff, roughness: 0.02, transparent: true, opacity: 0.10, depthWrite: false, envMapIntensity: 1.5 });
+    updateDerivedColors();
+  }
+  const shade = (hex, k) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return c.convertSRGBToLinear(); };
+  function updateDerivedColors() {
+    mats.blazer.color.copy(lin(state.colors.blazer)); mats.blazerSeam.color.copy(shade(state.colors.blazer, 0.62));
+    mats.top.color.copy(lin(state.colors.top));
+    mats.trousers.color.copy(lin(state.colors.trousers)); mats.trousersSeam.color.copy(shade(state.colors.trousers, 0.62));
+    mats.shoe.color.copy(lin(state.colors.shoe)); mats.shoeSole.color.copy(shade(state.colors.shoe, 0.82));
+  }
+
+  /* ---------- scene ---------- */
+  function buildEnv(p) {
+    const s = new THREE.Scene();
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(26, 14, 26), new THREE.MeshBasicMaterial({ color: new THREE.Color(p.env.wall, p.env.wall, p.env.wall), side: THREE.BackSide })); wall.position.y = 6; s.add(wall);
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({ color: new THREE.Color(p.env.floor, p.env.floor, p.env.floor) })); fl.rotation.x = -Math.PI / 2; fl.position.y = 0.02; s.add(fl);
+    const box = (w, h, pos, rgb, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(rgb[0] * k, rgb[1] * k, rgb[2] * k), side: THREE.DoubleSide })); m.position.set(pos[0], pos[1], pos[2]); m.lookAt(0, 1.2, 0); s.add(m); };
+    box(5, 6, [-6, 3.4, 6], p.env.key, 5.0);
+    box(4, 5, [6.5, 2.0, 4.5], p.env.fill, 2.2);
+    box(8, 3, [0, 7.5, 1.5], p.env.top, 3.4);
+    box(5, 5, [3, 3.0, -7], p.env.fill, 2.6);
+    return s;
+  }
+  function applyPreset(name) {
+    const p = PRESETS[name];
+    renderer.setClearColor(new THREE.Color(p.bg), 1);
+    if (envTarget) envTarget.dispose();
+    envTarget = pmrem.fromScene(buildEnv(p), 0.04);
+    scene.environment = envTarget.texture;
+    keyLight.color.setHex(p.key); fillLight.color.setHex(p.fill); rimLight.color.setHex(p.rim);
+    hemi.color.setHex(p.hemiSky); hemi.groundColor.setHex(p.hemiGround);
+    const fc = lin(p.bg).multiplyScalar(0.95); floorMat.color.copy(fc);
+    applyIntensity(); requestRender();
+  }
+  function applyIntensity() {
+    const p = PRESETS[state.light], k = state.intensity;
+    keyLight.intensity = p.keyI * k; fillLight.intensity = p.fillI * k; rimLight.intensity = p.rimI * k; hemi.intensity = p.hemiI * k;
+    for (const id in mats) mats[id].envMapIntensity = (id === 'cornea' || id === 'glass' || id === 'gem' ? 2.0 : 1.0) * p.envI * k * (id === 'metal' ? 1.4 : 1);
+    renderer.toneMappingExposure = state.exposure; requestRender();
+  }
+  function applyKeyDirection() {
+    const a = state.dir * Math.PI / 180;
+    renderer.shadowMap.needsUpdate = true;
+    keyLight.position.set(Math.sin(a) * 4.2, 3.4, Math.cos(a) * 4.2);
+    rimLight.position.set(-Math.sin(a) * 3.2, 2.6, -Math.cos(a) * 3.2);
+    fillLight.position.set(-Math.sin(a + 0.9) * 3.5, 1.6, Math.cos(a + 0.9) * 3.5);
+    requestRender();
+  }
+  let floorMat;
+  function buildStage() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.LinearToneMapping; renderer.toneMappingExposure = state.exposure;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+    stageEl.insertBefore(renderer.domElement, stageEl.firstChild); renderer.domElement.tabIndex = 0; renderer.domElement.setAttribute('aria-label', '3D character viewport');
+    scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(26, 1, 0.05, 60);
+    pmrem = new THREE.PMREMGenerator(renderer);
+
+    keyLight = new THREE.DirectionalLight(0xffffff, 1); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048);
+    const sc = keyLight.shadow.camera; sc.left = -2.1; sc.right = 2.1; sc.top = 2.1; sc.bottom = -2.1; sc.near = 0.5; sc.far = 12; sc.updateProjectionMatrix(); keyLight.shadow.bias = -0.0003; keyLight.shadow.normalBias = 0.012; keyLight.shadow.radius = 4;
+    keyLight.target.position.set(0, 0.85, 0); scene.add(keyLight, keyLight.target);
+    fillLight = new THREE.DirectionalLight(0xffffff, 0.2); fillLight.target.position.set(0, 0.9, 0); scene.add(fillLight, fillLight.target);
+    rimLight = new THREE.DirectionalLight(0xffffff, 0.3); rimLight.target.position.set(0, 1.0, 0); scene.add(rimLight, rimLight.target);
+    hemi = new THREE.HemisphereLight(0xffffff, 0xb9b4b0, 0.2); scene.add(hemi);
+
+    // floor group: seamless fade disc, soft contact shadows, shadow catcher
+    floorGroup = new THREE.Group(); scene.add(floorGroup);
+    floorMat = new THREE.MeshBasicMaterial({ color: lin('#d0d3d8'), alphaMap: floorFadeTex(), transparent: true, depthWrite: false, toneMapped: false });
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 64), floorMat); floor.rotation.x = -Math.PI / 2; floor.renderOrder = 0; floorGroup.add(floor);
+    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex(), transparent: true, depthWrite: false, toneMapped: false, opacity: 0.9 });
+    const addBlob = (x, z, w, d) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); b.rotation.x = -Math.PI / 2; b.position.set(x, 0.0015, z); b.renderOrder = 1; floorGroup.add(b); };
+    addBlob(0, 0.01, 1.05, 0.62); addBlob(0.126, 0.02, 0.34, 0.40); addBlob(-0.126, 0.02, 0.34, 0.40);
+    const catcher = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.26, depthWrite: false })); catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.003; catcher.receiveShadow = true; catcher.renderOrder = 2; floorGroup.add(catcher);
+  }
+
+  function buildCharacter() {
+    const parts = buildModel();
+    charGroup = new THREE.Group();
+    for (const p of parts) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(p.pos, 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(p.nor, 3));
+      g.setAttribute('uv', new THREE.BufferAttribute(p.uv, 2));
+      if (p.col) g.setAttribute('color', new THREE.BufferAttribute(p.col, 3));
+      g.setIndex(new THREE.BufferAttribute(p.idx, 1));
+      g.computeBoundingSphere();
+      let m = mats[p.mat]; if (!m) { console.warn('no material', p.mat); m = mats.skin; }
+      if (p.mat === 'skin' && !p.col) m = mats.skinDark;
+      const mesh = new THREE.Mesh(g, m); mesh.name = p.id;
+      const transparent = p.mat === 'cornea' || p.mat === 'glass';
+      mesh.castShadow = !transparent; mesh.receiveShadow = true; if (transparent) mesh.renderOrder = 5;
+      charGroup.add(mesh);
+    }
+    scene.add(charGroup);
+  }
+
+  /* ---------- camera / orbit ---------- */
+  const cam = { target: new THREE.Vector3(0, 0.83, 0), az: 0.42, el: 0.09, dist: 4.5 };
+  const FOV = 26 * Math.PI / 180;
+  function fitDist(h, w) {
+    const aspect = Math.max(0.2, stageEl.clientWidth / Math.max(1, stageEl.clientHeight));
+    const dv = (h / 2) / Math.tan(FOV / 2), dh = (w / 2) / (Math.tan(FOV / 2) * aspect);
+    return Math.max(dv, dh);
+  }
+  const fitFull = () => fitDist(1.62 * 1.17, 0.95);
+  function applyCam() {
+    cam.el = Math.max(-0.05, Math.min(1.5, cam.el)); cam.dist = Math.max(0.3, Math.min(9, cam.dist));
+    cam.target.y = Math.max(0.0, Math.min(1.9, cam.target.y)); cam.target.x = Math.max(-1.2, Math.min(1.2, cam.target.x)); cam.target.z = Math.max(-1.2, Math.min(1.2, cam.target.z));
+    const ce = Math.cos(cam.el);
+    camera.position.set(cam.target.x + cam.dist * ce * Math.sin(cam.az), cam.target.y + cam.dist * Math.sin(cam.el), cam.target.z + cam.dist * ce * Math.cos(cam.az));
+    camera.lookAt(cam.target); requestRender();
+  }
+  function setView(name) {
+    const full = fitFull();
+    const V = {
+      front: { az: 0, el: 0.04, t: [0, 0.83, 0], d: full },
+      tq: { az: 0.62, el: 0.07, t: [0, 0.83, 0], d: full },
+      left: { az: Math.PI / 2, el: 0.04, t: [0, 0.83, 0], d: full },
+      right: { az: -Math.PI / 2, el: 0.04, t: [0, 0.83, 0], d: full },
+      back: { az: Math.PI, el: 0.04, t: [0, 0.83, 0], d: full },
+      top: { az: 0, el: 1.5, t: [0, 0.83, 0], d: fitDist(1.62 * 1.1, 0.95) * 0.9 },
+      face: { az: 0.18, el: 0.03, t: [0, 1.485, 0.03], d: fitDist(0.46, 0.34) }
+    }[name];
+    cam.az = V.az; cam.el = V.el; cam.target.set(V.t[0], V.t[1], V.t[2]); cam.dist = V.d; applyCam();
+  }
+  function resetView() { cam.az = 0.42; cam.el = 0.09; cam.target.set(0, 0.83, 0); cam.dist = fitFull(); applyCam(); }
+  function fitCharacter() { cam.target.set(0, 0.83, 0); cam.dist = fitFull(); applyCam(); }
+
+  function bindOrbit() {
+    const el = renderer.domElement; const ptrs = new Map(); let last = null, mode = null, pinch = 0;
+    const panBy = (dx, dy) => {
+      const h = el.clientHeight, f = 2 * cam.dist * Math.tan(FOV / 2) / h;
+      camera.updateMatrix(); const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      cam.target.addScaledVector(right, -dx * f).addScaledVector(up, dy * f); applyCam();
+    };
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('pointerdown', e => {
+      el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      mode = (e.pointerType === 'mouse' && (e.button === 2 || e.button === 1 || e.shiftKey || e.ctrlKey || e.metaKey)) ? 'pan' : 'orbit';
+      last = { x: e.clientX, y: e.clientY };
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); mode = 'pinch'; last = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+    });
+    el.addEventListener('pointermove', e => {
+      if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (mode === 'pinch' && ptrs.size >= 2) {
+        const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (pinch > 0) cam.dist *= pinch / d; pinch = d; panBy(m.x - last.x, m.y - last.y); last = m; return;
+      }
+      const dx = e.clientX - last.x, dy = e.clientY - last.y; last = { x: e.clientX, y: e.clientY };
+      if (mode === 'pan') panBy(dx, dy);
+      else { cam.az -= dx * 2 * Math.PI / el.clientHeight; cam.el += dy * 2 * Math.PI / el.clientHeight * 0.6; applyCam(); }
+    });
+    const end = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; if (ptrs.size === 1) { const p = [...ptrs.values()][0]; last = { x: p.x, y: p.y }; mode = 'orbit'; } if (!ptrs.size) mode = null; };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    el.addEventListener('wheel', e => { e.preventDefault(); cam.dist *= Math.exp(Math.max(-120, Math.min(120, e.deltaY)) * 0.0011); applyCam(); }, { passive: false });
+    el.addEventListener('keydown', e => {
+      const k = e.key; let used = true;
+      if (k === 'ArrowLeft') cam.az -= 0.08; else if (k === 'ArrowRight') cam.az += 0.08; else if (k === 'ArrowUp') cam.el += 0.05; else if (k === 'ArrowDown') cam.el -= 0.05; else if (k === '+' || k === '=') cam.dist *= 0.9; else if (k === '-') cam.dist /= 0.9; else used = false;
+      if (used) { e.preventDefault(); applyCam(); }
+    });
+  }
+
+  function resize() {
+    const w = Math.max(1, stageEl.clientWidth), h = Math.max(1, stageEl.clientHeight);
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); requestRender();
+  }
+
+  /* ---------- UI ---------- */
+  function setRoughness(v) { state.rough = v; mats.blazer.roughness = mats.top.roughness = mats.trousers.roughness = v; $('o-rough').textContent = v.toFixed(2); requestRender(); }
+  function setWire(on) { state.wire = on; for (const id in mats) mats[id].wireframe = on; requestRender(); }
+  function setFloor(on) { state.floor = on; floorGroup.visible = on; requestRender(); }
+  function setLightPreset(name) {
+    state.light = name;
+    document.querySelectorAll('[data-light]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.light === name)));
+    applyPreset(name);
+  }
+  function syncUI() {
+    for (const k in state.colors) $('c-' + k).value = state.colors[k];
+    $('s-dir').value = state.dir; $('o-dir').textContent = state.dir + '°';
+    $('s-int').value = state.intensity; $('o-int').textContent = state.intensity.toFixed(2);
+    $('s-exp').value = state.exposure; $('o-exp').textContent = state.exposure.toFixed(2);
+    $('s-rough').value = state.rough; $('o-rough').textContent = state.rough.toFixed(2);
+    $('t-wire').checked = state.wire; $('t-floor').checked = state.floor;
+  }
+  function bindUI() {
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+    $('zin').addEventListener('click', () => { cam.dist *= 0.8; applyCam(); });
+    $('zout').addEventListener('click', () => { cam.dist /= 0.8; applyCam(); });
+    $('fit').addEventListener('click', fitCharacter);
+    $('resetView').addEventListener('click', resetView);
+    for (const k of ['blazer', 'top', 'trousers', 'shoe']) $('c-' + k).addEventListener('input', e => { state.colors[k] = e.target.value; updateDerivedColors(); requestRender(); });
+    document.querySelectorAll('[data-light]').forEach(b => b.addEventListener('click', () => setLightPreset(b.dataset.light)));
+    $('s-dir').addEventListener('input', e => { state.dir = +e.target.value; $('o-dir').textContent = state.dir + '°'; applyKeyDirection(); });
+    $('s-int').addEventListener('input', e => { state.intensity = +e.target.value; $('o-int').textContent = state.intensity.toFixed(2); applyIntensity(); });
+    $('s-exp').addEventListener('input', e => { state.exposure = +e.target.value; $('o-exp').textContent = state.exposure.toFixed(2); applyIntensity(); });
+    $('s-rough').addEventListener('input', e => setRoughness(+e.target.value));
+    $('t-wire').addEventListener('change', e => setWire(e.target.checked));
+    $('t-floor').addEventListener('change', e => setFloor(e.target.checked));
+    $('resetAll').addEventListener('click', () => {
+      Object.assign(state, JSON.parse(JSON.stringify(DEFAULTS)));
+      syncUI(); updateDerivedColors(); setRoughness(state.rough); setWire(false); setFloor(true);
+      applyKeyDirection(); setLightPreset(state.light); resetView();
+    });
+    window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
+  }
+
+  /* ---------- boot ---------- */
+  function loop() { if (dirty) { dirty = false; renderer.render(scene, camera); } requestAnimationFrame(loop); }
+  function boot() {
+    try {
+      buildStage(); makeMaterials(); syncUI(); bindUI(); applyKeyDirection(); applyPreset(state.light);
+      buildCharacter(); renderer.shadowMap.needsUpdate = true; resize(); resetView(); setWire(false);
+      $('loading').hidden = true; loop();
+    } catch (err) {
+      console.error(err); $('loading').textContent = 'The 3D viewer could not start: ' + (err && err.message ? err.message : err);
+    }
+  }
+  if (typeof THREE === 'undefined') { $('loading').textContent = 'Three.js did not load. Check your connection and reload.'; }
+  else setTimeout(boot, 30);
+  window.__viewer = { setView, state, cam, mats, requestRender };
+})();
+
+</script>
